@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [17.1001, 48.1422] },
+      "properties": {
+        "name": "Bratislavský hrad",
+        "walkTime": "35 min",
+        "driveTime": "8 min"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [17.1085, 48.1360] },
+      "properties": {
+        "name": "Sad Janka Kráľa",
+        "walkTime": "15 min",
+        "driveTime": "4 min"
+      }
+    }
+  ]
+}
