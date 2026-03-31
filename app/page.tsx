@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -496,6 +497,7 @@ export default function Home() {
 
   const navItems = [
     { id: 'uvod', label: t.navHome },
+    { id: 'cennik', label: 'Výber bytu', href: '/cennik' },
     { id: 'projekt', label: t.navProject },
     { id: 'galeria', label: t.navGallery },
     { id: 'historia', label: t.navHistory },
@@ -551,12 +553,16 @@ export default function Home() {
           {/* Dropdown Menu */}
           {isMenuOpen && (
             <div className="absolute top-full left-0 mt-2 w-56 bg-[#d7d9c7]/95 backdrop-blur-md shadow-xl border border-[#ffa62b]/30 py-2 overflow-hidden flex flex-col z-50 rounded-sm">
-              {navItems.map((item, index) => (
+              {navItems.map((item: any, index: number) => (
                 <button
                   key={item.id}
                   onClick={() => {
                     setIsMenuOpen(false);
-                    document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' });
+                    if (item.href) {
+                      window.location.href = item.href;
+                    } else {
+                      document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' });
+                    }
                   }}
                   style={{ animationDelay: `${index * 50}ms` }}
                   className="animate-menu-item text-left px-6 py-3 text-stone-700 hover:bg-[#ffa62b]/50 hover:text-[#544740] transition-colors font-bold tracking-wider text-sm uppercase"
@@ -657,9 +663,14 @@ export default function Home() {
             <p className="text-lg sm:text-xl text-stone-100 font-light max-w-2xl mx-auto leading-relaxed mb-10 drop-shadow-md">
               {t.heroDesc}
             </p>
-            <button onClick={scrollToForm} className={`border border-white/50 bg-white/20 backdrop-blur-md text-white rounded hover:bg-white hover:text-stone-900 rounded uppercase tracking-widest text-sm px-12 py-4 transition-all duration-500 ${avenirHeading}`}>
-              {t.btnInterest}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button onClick={scrollToForm} className={`border border-white/50 bg-white/20 backdrop-blur-md text-white rounded hover:bg-white hover:text-stone-900 uppercase tracking-widest text-sm px-12 py-4 transition-all duration-500 ${avenirHeading}`}>
+                {t.btnInterest}
+              </button>
+              <Link href="/cennik" className={`border border-white/50 bg-[#544740]/60 backdrop-blur-md text-white rounded hover:bg-[#544740] uppercase tracking-widest text-sm px-12 py-4 transition-all duration-500 text-center ${avenirHeading}`}>
+                Vybrať priestor
+              </Link>
+            </div>
           </div>
         </FadeInSection>
       </section>
