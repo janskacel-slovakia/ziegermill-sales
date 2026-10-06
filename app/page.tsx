@@ -527,7 +527,7 @@ export default function Home() {
 
       {/* STICKY TOP MENU BAR */}
       <nav
-        className={`fixed top-1 left-0 w-full h-40 z-40 bg-[#3091b3]/40 backdrop-blur-sm shadow-md transition-transform duration-500 ease-in-out flex items-center justify-center px-6 md:px-12 ${
+        className={`fixed top-1 left-0 w-full h-20 sm:h-40 z-40 bg-[#3091b3]/40 backdrop-blur-sm shadow-md transition-transform duration-500 ease-in-out flex items-center justify-center px-6 md:px-12 ${
           showNav ? 'translate-y-0' : '-translate-y-[110%]'
         }`}
       >

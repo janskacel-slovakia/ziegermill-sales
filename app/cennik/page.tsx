@@ -353,7 +353,7 @@ export default function CennikPage() {
       <div className="w-full h-1 bg-[#544740] fixed top-0 left-0 z-50" />
 
       {/* HEADER */}
-      <nav className={`fixed top-1 left-0 w-full h-40 z-40 bg-[#3091b3]/40 backdrop-blur-sm shadow-md transition-transform duration-500 ease-in-out flex items-center justify-center px-6 md:px-12`}>
+      <nav className={`fixed top-1 left-0 w-full h-20 sm:h-40 z-40 bg-[#3091b3]/40 backdrop-blur-sm shadow-md transition-transform duration-500 ease-in-out flex items-center justify-center px-6 md:px-12`}>
         <div className="absolute left-4 md:left-10 top-1/2 -translate-y-1/2">
           <Link href="/" className="flex items-center gap-3 text-[#d7d9c7] hover:text-white transition-colors group">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="group-hover:-translate-x-1 transition-transform"><polyline points="15 18 9 12 15 6" /></svg>
@@ -361,11 +361,10 @@ export default function CennikPage() {
           </Link>
         </div>
         <Link href="/"><img src="/logo.svg" alt="Logo" className="h-14 sm:h-35 w-auto object-contain" /></Link>
-        <div className="w-[80px]" />
       </nav>
 
       {/* CONTENT */}
-      <div className="pt-48 pb-8 px-4 md:px-6">
+      <div className="pt-28 sm:pt-48 pb-8 px-4 md:px-6">
         <div className="max-w-7xl mx-auto w-full bg-[#d7d9c7]/70 backdrop-blur-sm shadow-xl relative z-10 rounded-sm overflow-hidden">
 
           {/* Title */}
