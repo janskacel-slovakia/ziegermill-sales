@@ -582,7 +582,7 @@ export default function Home() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         >
-          <img src="/logo.png" alt="Zieger Mill Logo" className="h-auto max-h-[80px] sm:max-h-none sm:h-35 w-auto object-contain" />
+          <img src="/logo.svg" alt="Zieger Mill Logo" className="h-auto max-h-[80px] sm:max-h-none sm:h-35 w-auto object-contain" />
         </div>
       </nav>
 
@@ -667,9 +667,10 @@ export default function Home() {
               <button onClick={scrollToForm} className={`border border-white/50 bg-white/20 backdrop-blur-md text-white rounded hover:bg-white hover:text-stone-900 uppercase tracking-widest text-sm px-12 py-4 transition-all duration-500 ${avenirHeading}`}>
                 {t.btnInterest}
               </button>
-              <Link href="/cennik" className={`border border-white/50 bg-[#544740]/60 backdrop-blur-md text-white rounded hover:bg-[#544740] uppercase tracking-widest text-sm px-12 py-4 transition-all duration-500 text-center ${avenirHeading}`}>
-                Vybrať priestor
-              </Link>
+              {/* Static walkthrough in public/walk/a32 — plain <a>, Next.js routing doesn't serve it */}
+              <a href="/walk/a32/index.html" className={`border border-white/50 bg-[#544740]/60 backdrop-blur-md text-white rounded hover:bg-[#544740] uppercase tracking-widest text-sm px-12 py-4 transition-all duration-500 text-center ${avenirHeading}`}>
+                Prechádzať sa v ateliéri
+              </a>
             </div>
           </div>
         </FadeInSection>

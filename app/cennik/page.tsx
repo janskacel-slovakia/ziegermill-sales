@@ -360,7 +360,7 @@ export default function CennikPage() {
             <span className={`text-sm uppercase tracking-widest hidden sm:inline ${avenirHeading}`}>Späť</span>
           </Link>
         </div>
-        <Link href="/"><img src="/logo.png" alt="Logo" className="h-auto max-h-[80px] sm:max-h-none sm:h-35 w-auto object-contain" /></Link>
+        <Link href="/"><img src="/logo.svg" alt="Logo" className="h-auto max-h-[80px] sm:max-h-none sm:h-35 w-auto object-contain" /></Link>
         <div className="w-[80px]" />
       </nav>
 
