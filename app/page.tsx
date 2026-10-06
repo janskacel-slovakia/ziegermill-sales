@@ -582,7 +582,7 @@ export default function Home() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         >
-          <img src="/logo.svg" alt="Zieger Mill Logo" className="h-auto max-h-[80px] sm:max-h-none sm:h-35 w-auto object-contain" />
+          <img src="/logo.svg" alt="Zieger Mill Logo" className="h-14 sm:h-35 w-auto object-contain" />
         </div>
       </nav>
 
