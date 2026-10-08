@@ -2,7 +2,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=Newsreader:ital,opsz,wght@1,6..72,400&display=swap">
 <style>
-/* Layout: full-bleed 3D view; quiet glass chips pinned to the corners; joystick bottom-left on touch screens. */
+/* Layout: full-bleed 3D view; quiet glass chips pinned to the corners; a floating walk joystick on touch screens. */
 :root {
   --ink: #f3efe8;          /* text on the scene */
   --ink-dim: #c9c2b6;
@@ -45,7 +45,8 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--u
 #hint.gone { opacity: 0; pointer-events: none; }
 #stick { position: fixed; left: 28px; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); width: 118px; height: 118px; border-radius: 50%; border: 1px solid var(--line); background: rgba(24, 22, 19, 0.35); display: none; }
 #stick .knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(243, 239, 232, 0.85); }
-body.touch #stick { display: block; }
+body.touch #stick { display: block; opacity: 0.4; pointer-events: none; transition: opacity .2s; }   /* resting place; it jumps under the left thumb */
+body.touch #stick.live { opacity: 1; transition: none; }
 #loader { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); z-index: 5; transition: opacity .5s; }
 #loader.done { opacity: 0; pointer-events: none; }
 #loader .box { width: min(320px, calc(100vw - 48px)); display: grid; gap: 14px; }
@@ -151,7 +152,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
 const $ = (id) => document.getElementById(id);
 const touch = matchMedia('(pointer: coarse)').matches;
-if (touch) { document.body.classList.add('touch'); $('hint').textContent = 'Slide a finger to walk and step aside · the ring to look around'; }
+if (touch) { document.body.classList.add('touch'); $('hint').textContent = document.documentElement.lang === 'sk' ? 'Ľavý palec chôdza · pravý palec rozhliadanie' : 'Left thumb walks · right thumb looks around'; }
 // visitor texts: English (studio) or Slovak (the website copy: <html lang="sk">, or ?lang=sk)
 const SK = /^sk/i.test(document.documentElement.lang || '') || new URLSearchParams(location.search).get('lang') === 'sk';
 const T = SK ? {
@@ -163,9 +164,8 @@ const T = SK ? {
   mouse: [['Rozhliadanie', 'Podržte ľavé tlačidlo myši a pohybujte myšou (kurzor sa skryje), alebo šípky ← →'],
           ['Chôdza dopredu a dozadu', 'Klávesy W a S alebo šípky ↑ ↓'],
           ['Úkrok doľava a doprava', 'Klávesy A a D']],
-  touch: [['Chôdza dopredu a dozadu', 'Prstom kdekoľvek na obrazovke potiahnite hore alebo dole'],
-          ['Úkrok doľava a doprava', 'Tým istým prstom potiahnite doľava alebo doprava'],
-          ['Rozhliadanie', 'Palcom posúvajte krúžok vľavo dole – do strán, hore a dole']],
+  touch: [['Chôdza', 'Ľavý palec položte kdekoľvek na ľavú polovicu obrazovky a posúvajte ním – dopredu, dozadu aj do strán'],
+          ['Rozhliadanie', 'Pravým palcom ťahajte kdekoľvek po pravej polovici obrazovky']],
   places: { 'Entrance': 'Vstup', 'Living room': 'Obývačka', 'Kitchen': 'Kuchyňa', 'Bathroom': 'Kúpeľňa', 'Bedroom': 'Spálňa', 'Balcony': 'Balkón', 'Loft': 'Galéria' },
 } : {
   prep: 'Preparing the flat…', loading: (d, t) => `Loading ${d} of ${t} files`,
@@ -176,9 +176,8 @@ const T = SK ? {
   mouse: [['Look around', 'Hold the left mouse button and move the mouse (the cursor hides), or the arrow keys ← →'],
           ['Walk forward and back', 'W and S, or the arrow keys ↑ ↓'],
           ['Step left and right', 'A and D']],
-  touch: [['Walk forward and back', 'Slide a finger anywhere on the screen up or down'],
-          ['Step left and right', 'Slide the same finger left or right'],
-          ['Look around', 'Push the ring at the bottom left with your thumb - to the sides, up and down']],
+  touch: [['Walk', 'Put your left thumb anywhere on the left half of the screen and push - forward, back and to the sides'],
+          ['Look around', 'Drag your right thumb anywhere on the right half of the screen']],
   places: {},
 };
 $('msg').textContent = T.prep; document.querySelector('#level .lab').textContent = T.level; $('places').setAttribute('aria-label', T.goto);
@@ -295,7 +294,7 @@ const ICON = {
 const K = (...ks) => ks.map((k) => `<kbd>${k}</kbd>`).join('');
 ICON.dragV = '<svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="20" cy="17" r="4.5" fill="currentColor"/><path d="M9 5v24M5.5 8.5L9 5l3.5 3.5M5.5 25.5L9 29l3.5-3.5"/></svg>';
 ICON.ring = '<svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="17" cy="17" r="14" opacity=".6"/><circle cx="17" cy="17" r="5" fill="currentColor"/><path d="M14.5 6l2.5-2.5L19.5 6M14.5 28l2.5 2.5 2.5-2.5M6 14.5L3.5 17 6 19.5M28 14.5l2.5 2.5-2.5 2.5"/></svg>';
-const guideKeys = touch ? [ICON.dragV, ICON.drag, ICON.ring]
+const guideKeys = touch ? [ICON.ring, ICON.drag]
   : [ICON.mouse + K('←', '→'), K('W', 'S') + '<span>/</span>' + K('↑', '↓'), K('A', 'D')];
 $('guideTitle').textContent = T.guide; $('guideOk').textContent = T.ok;
 $('help').setAttribute('aria-label', T.help); $('help').title = T.help;
@@ -649,21 +648,23 @@ let skipLock = false;
 document.addEventListener('pointerlockchange', () => {
   if (locked()) skipLock = true;                  // (if it ends early, e.g. Esc, the drag goes on as a plain drag)
 });
-// touch (Jano, 6 / 8 Oct): a finger anywhere slides up / down to walk forward / back (how far from where it landed sets the
-// pace) and left / right to step aside; the ring at the bottom left looks around - to the sides and up / down
-const stick = { id: null, cx: 0, cy: 0, dx: 0, dy: 0 }, looks = new Map(), walkT = { id: null, sx: 0, sy: 0, f: 0, s: 0 };
-const knob = document.querySelector('#stick .knob');
-const taps = new Map();
+// touch (Jano, 8 Oct - as in mobile shooters): the left thumb walks with a floating joystick that appears where it lands
+// on the left half (up / down forward and back, left / right steps aside, how far it's pushed sets the pace; pushed past
+// the ring the ring follows); the right thumb drags anywhere to look around - the view follows the finger like a mouse,
+// it does not keep turning on its own. A quick tap without moving is still a tap (places, measuring, notes).
+const stick = { id: null, cx: 0, cy: 0, dx: 0, dy: 0 }, looks = new Map(), taps = new Map();
+const stickEl = $('stick'), knob = document.querySelector('#stick .knob');
+const STICK_R = 50, STICK_DEAD = 0.12, TOUCH_YAW = 2.3, TOUCH_PITCH = 1.85;   // (look: times the mouse's LOOK per pixel)
+function stickHome() { stickEl.classList.remove('live'); stickEl.style.left = stickEl.style.top = stickEl.style.bottom = ''; knob.style.transform = ''; }
 document.addEventListener('touchstart', (e) => {
-  if (e.target.closest('button, a, .panel')) return;              // (links: the flat switch of the website export)
+  if (e.target.closest('button, a, .panel, #places')) return;      // (links: the flat switch of the website export)
   for (const t of e.changedTouches) {
-    const r = $('stick').getBoundingClientRect();
-    if (stick.id === null && t.clientX < r.right + 40 && t.clientY > r.top - 60) {
-      stick.id = t.identifier; stick.cx = r.left + r.width / 2; stick.cy = r.top + r.height / 2; moveStick(t);
-    } else {
-      looks.set(t.identifier, [t.clientX, t.clientY]); taps.set(t.identifier, [t.clientX, t.clientY, performance.now()]);
-      if (walkT.id === null) { walkT.id = t.identifier; walkT.sx = t.clientX; walkT.sy = t.clientY; walkT.f = walkT.s = 0; }
-    }
+    taps.set(t.identifier, [t.clientX, t.clientY, performance.now()]);
+    if (stick.id === null && t.clientX < innerWidth * 0.5) {
+      stick.id = t.identifier; stick.cx = t.clientX; stick.cy = t.clientY; stick.dx = stick.dy = 0;
+      const h = stickEl.offsetWidth / 2 || 59;
+      stickEl.classList.add('live'); stickEl.style.bottom = 'auto'; stickEl.style.left = (t.clientX - h) + 'px'; stickEl.style.top = (t.clientY - h) + 'px';
+    } else looks.set(t.identifier, [t.clientX, t.clientY]);
   }
   e.preventDefault();
 }, { passive: false });
@@ -672,11 +673,8 @@ document.addEventListener('touchmove', (e) => {
   for (const t of e.changedTouches) {
     if (t.identifier === stick.id) moveStick(t);
     else if (looks.has(t.identifier)) {
-      looks.set(t.identifier, [t.clientX, t.clientY]);           // (Jano, 8 Oct: the finger walks and steps aside - turning is the ring's)
-      if (t.identifier === walkT.id) {          // up / down walks, left / right steps aside (Jano, 8 Oct)
-        const pace = (d) => Math.abs(d) < 12 ? 0 : Math.max(-1, Math.min(1, (d - Math.sign(d) * 12) / 90));
-        walkT.f = pace(walkT.sy - t.clientY); walkT.s = pace(t.clientX - walkT.sx); moved();
-      }
+      const [px, py] = looks.get(t.identifier);
+      turn((t.clientX - px) * TOUCH_YAW, (t.clientY - py) * TOUCH_PITCH); looks.set(t.identifier, [t.clientX, t.clientY]);
     }
   }
   e.preventDefault();
@@ -685,16 +683,19 @@ function endTouch(e) {
   for (const t of e.changedTouches) {
     const tp = taps.get(t.identifier); taps.delete(t.identifier);
     if (tp && e.type === 'touchend' && Math.hypot(t.clientX - tp[0], t.clientY - tp[1]) < 10 && performance.now() - tp[2] < 450) tapAt(t.clientX, t.clientY);
-    if (t.identifier === stick.id) { stick.id = null; stick.dx = stick.dy = 0; knob.style.transform = ''; }
+    if (t.identifier === stick.id) { stick.id = null; stick.dx = stick.dy = 0; stickHome(); }
     looks.delete(t.identifier);
-    if (t.identifier === walkT.id) { walkT.id = null; walkT.f = walkT.s = 0; }
   }
 }
 document.addEventListener('touchend', endTouch); document.addEventListener('touchcancel', endTouch);
 function moveStick(t) {
-  let dx = t.clientX - stick.cx, dy = t.clientY - stick.cy; const r = Math.hypot(dx, dy), max = 46;
-  if (r > max) { dx *= max / r; dy *= max / r; }
-  stick.dx = dx / max; stick.dy = dy / max; knob.style.transform = `translate(${dx}px, ${dy}px)`; moved();
+  let dx = t.clientX - stick.cx, dy = t.clientY - stick.cy; const r = Math.hypot(dx, dy);
+  if (r > STICK_R) {                                  // pushed past the ring: the ring follows the thumb
+    const k = (r - STICK_R) / r; stick.cx += dx * k; stick.cy += dy * k; dx -= dx * k; dy -= dy * k;
+    const h = stickEl.offsetWidth / 2 || 59; stickEl.style.left = (stick.cx - h) + 'px'; stickEl.style.top = (stick.cy - h) + 'px';
+  }
+  const m = Math.hypot(dx, dy) / STICK_R, g = m < STICK_DEAD ? 0 : (m - STICK_DEAD) / (1 - STICK_DEAD) / Math.max(m, 1e-6);
+  stick.dx = dx / STICK_R * g; stick.dy = dy / STICK_R * g; knob.style.transform = `translate(${dx}px, ${dy}px)`; if (g) moved();
 }
 let hintTimer = null;
 function moved() { if (!hintTimer) hintTimer = setTimeout(() => $('hint').classList.add('gone'), 2500); }
@@ -712,10 +713,7 @@ function step(dt) {
   if (keys.has('KeyD')) s += 1;
   if (keys.has('ArrowLeft')) player.yaw += 1.8 * dt;
   if (keys.has('ArrowRight')) player.yaw -= 1.8 * dt;
-  f += walkT.f; s += walkT.s;
-  if (stick.id !== null) {                         // the ring looks around: left / right turns, up / down tilts
-    player.yaw -= stick.dx * 1.9 * dt; player.pitch = Math.max(-1.35, Math.min(1.35, player.pitch - stick.dy * 1.3 * dt));
-  }
+  if (stick.id !== null) { f -= stick.dy; s += stick.dx; }   // the left thumb's joystick walks and steps aside
   const mag = Math.hypot(f, s);
   if (mag > 0.05) {
     moved();
