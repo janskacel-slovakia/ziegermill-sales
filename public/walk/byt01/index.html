@@ -1,0 +1,782 @@
+<!doctype html><html lang="sk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body><title>Byt 01 – virtuálna prehliadka</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=Newsreader:ital,opsz,wght@1,6..72,400&display=swap">
+<style>
+/* Layout: full-bleed 3D view; quiet glass chips pinned to the corners; joystick bottom-left on touch screens. */
+:root {
+  --ink: #f3efe8;          /* text on the scene */
+  --ink-dim: #c9c2b6;
+  --glass: rgba(24, 22, 19, 0.58);
+  --glass-strong: rgba(24, 22, 19, 0.82);
+  --line: rgba(243, 239, 232, 0.18);
+  --oak: #c9a77c;          /* accent: the oak of the floor */
+  --bg: #171512;
+  --ui: "Hanken Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --display: "Newsreader", Georgia, "Times New Roman", serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--ui); overflow: hidden; -webkit-user-select: none; user-select: none; touch-action: none; }
+#view { position: fixed; inset: 0; }
+#view canvas { display: block; width: 100%; height: 100%; outline: none; }
+.chip { background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 10px; }
+/* Back to the website (a <button> because the page cancels touches on anything else) */
+#back { position: fixed; left: 16px; top: calc(16px + env(safe-area-inset-top, 0px)); z-index: 6; display: flex; align-items: center; gap: 6px; padding: 9px 14px 9px 10px; font: 500 13px/1 var(--ui); color: var(--ink); cursor: pointer; }
+#back:hover, #back:focus-visible { background: var(--glass-strong); outline: none; }
+#brand { position: fixed; left: 16px; top: calc(68px + env(safe-area-inset-top, 0px)); padding: 10px 14px 11px; display: grid; gap: 2px; max-width: calc(100vw - 32px); }
+#brand .name { font-family: var(--display); font-style: italic; font-size: 22px; line-height: 1.1; letter-spacing: 0.005em; }
+#brand .sub { font-size: 12px; color: var(--ink-dim); letter-spacing: 0.04em; }
+#level { position: fixed; right: 16px; top: calc(16px + env(safe-area-inset-top, 0px)); padding: 8px 12px; text-align: right; }
+#flatSwitch { position: fixed; right: 16px; top: calc(16px + env(safe-area-inset-top, 0px)); display: flex; gap: 2px; padding: 4px; }
+#flatSwitch a { font: 500 13px/1 var(--ui); color: var(--ink-dim); text-decoration: none; padding: 9px 12px; border-radius: 7px; white-space: nowrap; }
+#flatSwitch a[aria-current] { color: #1d1913; background: var(--oak); cursor: default; }
+#flatSwitch a:not([aria-current]):hover { color: var(--ink); background: rgba(243, 239, 232, 0.08); }
+#flatSwitch a:focus-visible { outline: 2px solid var(--oak); outline-offset: 1px; }
+#flatSwitch .short { display: none; }
+@media (max-width: 560px) { #flatSwitch .full { display: none; } #flatSwitch .short { display: inline; } #flatSwitch a { padding: 9px 10px; } }
+#level .lab { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-dim); }
+#level .val { font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
+#places { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 6px; padding: 6px; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 32px); }
+#places button { font: 500 13px/1 var(--ui); color: var(--ink); background: transparent; border: 0; border-radius: 7px; padding: 9px 12px; cursor: pointer; }
+#places button:hover, #places button:focus-visible { background: rgba(243, 239, 232, 0.12); outline: none; }
+#places button[aria-pressed="true"] { background: var(--oak); color: #1d1913; }
+#hint { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); font-size: 13px; color: var(--ink); padding: 8px 12px; transition: opacity .6s; max-width: calc(100vw - 32px); text-align: center; }
+#hint.gone { opacity: 0; pointer-events: none; }
+#stick { position: fixed; left: 28px; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); width: 118px; height: 118px; border-radius: 50%; border: 1px solid var(--line); background: rgba(24, 22, 19, 0.35); display: none; }
+#stick .knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(243, 239, 232, 0.85); }
+body.touch #stick { display: block; }
+#loader { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); z-index: 5; transition: opacity .5s; }
+#loader.done { opacity: 0; pointer-events: none; }
+#loader .box { width: min(320px, calc(100vw - 48px)); display: grid; gap: 14px; }
+#loader .name { font-family: var(--display); font-style: italic; font-size: 30px; }
+#loader .bar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+#loader .bar i { display: block; height: 100%; width: 0; background: var(--oak); transition: width .2s; }
+#loader .msg { font-size: 12.5px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+#tools { position: fixed; right: 16px; top: calc(78px + env(safe-area-inset-top, 0px)); display: flex; gap: 4px; padding: 4px; }
+#tools button, .panel button { font: 500 13px/1 var(--ui); color: var(--ink); background: transparent; border: 0; border-radius: 7px; padding: 9px 11px; cursor: pointer; }
+#tools button:hover, #tools button:focus-visible, .panel button:hover, .panel button:focus-visible { background: rgba(243, 239, 232, 0.12); outline: none; }
+#tools button[aria-pressed="true"] { background: var(--oak); color: #1d1913; }
+.panel button[aria-pressed="true"] { background: rgba(201, 167, 124, 0.28); }
+body.noting #view canvas { cursor: crosshair; }
+.panel { position: fixed; z-index: 3; background: var(--glass-strong); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--line); border-radius: 12px; color: var(--ink); -webkit-user-select: text; user-select: text; }
+#notePanel { left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); width: min(420px, calc(100vw - 32px)); padding: 14px; display: grid; gap: 10px; }
+#notePanel h2, #notesList h2 { margin: 0; font: 500 15px/1.2 var(--ui); letter-spacing: 0.01em; }
+#notePanel textarea { width: 100%; box-sizing: border-box; min-height: 84px; resize: vertical; font: 400 14px/1.45 var(--ui); color: var(--ink); background: rgba(0, 0, 0, 0.28); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; }
+#notePanel textarea:focus { outline: 2px solid var(--oak); outline-offset: 0; }
+.row { display: flex; gap: 6px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+.row .grow { flex: 1; font-size: 12px; color: var(--ink-dim); min-width: 0; }
+.primary { background: var(--oak) !important; color: #1d1913 !important; }
+#notesList { right: 16px; top: calc(128px + env(safe-area-inset-top, 0px)); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); width: min(360px, calc(100vw - 32px)); padding: 12px; display: grid; grid-template-rows: auto 1fr; gap: 10px; }
+#notesList ol { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: grid; gap: 10px; align-content: start; }
+#notesList li { display: grid; grid-template-columns: 26px 1fr; gap: 8px; padding: 8px; border-radius: 9px; background: rgba(0, 0, 0, 0.22); }
+#notesList li.hl { outline: 2px solid var(--oak); }
+#notesList .num, .pinnum { width: 24px; height: 24px; border-radius: 50%; background: var(--oak); color: #1d1913; font: 600 12px/24px var(--ui); text-align: center; }
+#notesList .body { display: grid; gap: 6px; min-width: 0; }
+#notesList .txt { font-size: 13.5px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+#notesList .meta { font-size: 11.5px; color: var(--ink-dim); }
+#notesList img { width: 100%; border-radius: 6px; display: block; }
+#notesList .empty { font-size: 13px; color: var(--ink-dim); line-height: 1.45; }
+#notesList li.done .num { background: #6f6a62; color: var(--ink); }
+#notesList .edit { display: grid; gap: 8px; }
+#notesList .edit textarea { width: 100%; box-sizing: border-box; min-height: 76px; resize: vertical; font: 400 13.5px/1.45 var(--ui); color: var(--ink); background: rgba(0, 0, 0, 0.28); border: 1px solid var(--line); border-radius: 8px; padding: 8px 9px; }
+#notesList .edit textarea:focus { outline: 2px solid var(--oak); outline-offset: 0; }
+#notesList .edit label { display: flex; gap: 7px; align-items: center; font-size: 12.5px; color: var(--ink-dim); }
+#notesList .edit input[type=checkbox] { accent-color: var(--oak); width: 15px; height: 15px; margin: 0; }
+#notesList .acts { display: flex; gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
+#notesList .acts button { padding: 7px 9px; font-size: 12.5px; }
+#notesList .st { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
+#notesList .reply { font-size: 13px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; border-left: 2px solid var(--oak); padding: 2px 0 2px 8px; }
+#notesList .reply .who { display: block; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--oak); margin-bottom: 2px; }
+#help { position: fixed; right: 16px; top: calc(78px + env(safe-area-inset-top, 0px)); width: 40px; height: 40px; padding: 0; font: 600 17px/1 var(--ui); color: var(--ink); cursor: pointer; }
+#help:hover, #help:focus-visible { background: var(--glass-strong); outline: none; }
+/* measure (Jano, 6 Oct): two taps, a line and its length */
+#measure { position: fixed; right: 16px; top: calc(126px + env(safe-area-inset-top, 0px)); width: 40px; height: 40px; padding: 0; color: var(--ink); cursor: pointer; display: grid; place-items: center; }
+#measure svg { width: 22px; height: 22px; }
+#measure:hover, #measure:focus-visible { background: var(--glass-strong); outline: none; }
+#measure[aria-pressed="true"] { background: #c9a77c; color: #1d1913; }
+#mLabel { position: fixed; left: 0; top: 0; transform: translate(-50%, -130%); padding: 5px 9px 6px; font: 600 14px/1.15 var(--ui); color: #1d1913; background: #f3efe8; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.35); pointer-events: none; white-space: nowrap; text-align: center; font-variant-numeric: tabular-nums; }
+#mLabel small { display: block; font-weight: 500; font-size: 11px; color: #5c564d; }
+#guide { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(420px, calc(100vw - 32px)); box-sizing: border-box; padding: 18px 18px 14px; display: grid; gap: 14px; z-index: 4; }
+#guide h2 { margin: 0; font: italic 400 24px/1.15 var(--display); }
+#guide ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: max-content 1fr; gap: 12px 16px; align-items: center; }
+#guide li { display: contents; }
+#guide .keys { display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; color: var(--ink-dim); font-size: 12px; min-width: 40px; }
+#guide kbd { min-width: 28px; height: 28px; padding: 0 7px; box-sizing: border-box; display: inline-grid; place-items: center; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; background: rgba(243, 239, 232, 0.08); font: 600 13px/1 var(--ui); color: var(--ink); }
+#guide svg { width: 34px; height: 34px; color: var(--ink); flex: none; }
+#guide .what { display: grid; gap: 2px; font-size: 14px; line-height: 1.3; }
+#guide .what b { font-weight: 600; }
+#guide .what span { font-size: 12.5px; color: var(--ink-dim); }
+#guide .row button { font-size: 14px; padding: 10px 16px; }
+@media (max-width: 560px) { #brand .name { font-size: 19px; } #level .val { font-size: 17px; } #places button { padding: 9px 10px; font-size: 12.5px; flex: none; }
+  #brand { max-width: calc(100vw - 172px); box-sizing: border-box; }                       /* clear of the floor-level chip */
+  #places { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; touch-action: pan-x; scrollbar-width: none; }   /* one row: clear of the walk ring */
+  #places::-webkit-scrollbar { display: none; } }
+@media (prefers-reduced-motion: reduce) { #hint, #loader, #loader .bar i { transition: none; } }
+</style>
+
+<div id="view"></div>
+<button id="back" class="chip" type="button" onclick="location.href='/'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>Späť na web</button>
+<div id="brand" class="chip"><span class="name">Byt 01</span><span class="sub">Mlyn Matadorka · 6. podlažie</span></div>
+<div id="level" class="chip"><div class="lab">Floor level</div><div class="val" id="levelVal">+20.050</div></div>
+<div id="places" class="chip" role="group" aria-label="Go to"></div>
+<div id="hint" class="chip">Hold the mouse button to look around · W A S D or arrow keys to walk · Space to jump · C to crouch</div>
+<div id="stick" aria-hidden="true"><div class="knob"></div></div>
+<button id="help" class="chip" type="button" hidden aria-haspopup="dialog" aria-controls="guide">?</button>
+<div id="guide" class="panel" hidden role="dialog" aria-labelledby="guideTitle">
+  <h2 id="guideTitle">How to move</h2>
+  <ul id="guideList"></ul>
+  <div class="row"><button type="button" id="guideOk" class="primary">Got it</button></div>
+</div>
+<div id="tools" class="chip" hidden><button type="button" id="addNote" aria-pressed="false">Add note</button><button type="button" id="showNotes">Notes</button><button type="button" id="saveView" hidden title="Keep this view for a full-quality preview render (Bake tab)">Save view</button></div>
+<button id="measure" class="chip" type="button" aria-pressed="false" aria-label="Measure" title="Measure: tap two points"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 16.5 16.5 3 21 7.5 7.5 21z"/><path d="M7 12.5l1.8 1.8M9.8 9.7l2.6 2.6M12.6 6.9l1.8 1.8M15.4 4.1"/></svg></button>
+<div id="mLabel" hidden></div>
+<div id="notePanel" class="panel" hidden role="dialog" aria-labelledby="noteTitle">
+  <h2 id="noteTitle">New note</h2>
+  <label for="noteText" class="meta" style="font-size:12px;color:var(--ink-dim)">What should change at the marked spot?</label>
+  <textarea id="noteText" placeholder="For example: darker oak here, or move the plant to the left"></textarea>
+  <div class="row"><span class="grow" id="noteMsg"></span><button type="button" id="noteCancel">Cancel</button><button type="button" id="noteSave" class="primary">Save note</button></div>
+</div>
+<div id="notesList" class="panel" hidden><div class="row"><h2 class="grow" style="font-size:15px;color:var(--ink)">Notes</h2><button type="button" id="hideDone" aria-pressed="true">Hide done</button><button type="button" id="closeNotes">Close</button></div><ol id="notesOl"></ol></div>
+<div id="loader"><div class="box"><div class="name">Byt 01</div><div class="bar"><i id="bar"></i></div><div class="msg" id="msg">Preparing the flat…</div></div></div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+const $ = (id) => document.getElementById(id);
+const touch = matchMedia('(pointer: coarse)').matches;
+if (touch) { document.body.classList.add('touch'); $('hint').textContent = 'Slide a finger to walk and step aside · the ring to look around'; }
+// visitor texts: English (studio) or Slovak (the website copy: <html lang="sk">, or ?lang=sk)
+const SK = /^sk/i.test(document.documentElement.lang || '') || new URLSearchParams(location.search).get('lang') === 'sk';
+const T = SK ? {
+  prep: 'Pripravujem byt…', loading: (d, t) => `Načítavam ${d} z ${t} súborov`,
+  dataErr: 'Údaje bytu sa nepodarilo načítať. Obnovte stránku a skúste to znova.',
+  fileErr: (f) => `Súbor ${f} sa nenačítal. Obnovte stránku a skúste to znova.`,
+  level: 'Úroveň podlahy', goto: 'Prejsť do', title: (n) => n + ' – virtuálna prehliadka',
+  guide: 'Ako sa pohybovať', ok: 'Rozumiem', help: 'Ako sa pohybovať',
+  mouse: [['Rozhliadanie', 'Podržte ľavé tlačidlo myši a pohybujte myšou (kurzor sa skryje), alebo šípky ← →'],
+          ['Chôdza dopredu a dozadu', 'Klávesy W a S alebo šípky ↑ ↓'],
+          ['Úkrok doľava a doprava', 'Klávesy A a D']],
+  touch: [['Chôdza dopredu a dozadu', 'Prstom kdekoľvek na obrazovke potiahnite hore alebo dole'],
+          ['Úkrok doľava a doprava', 'Tým istým prstom potiahnite doľava alebo doprava'],
+          ['Rozhliadanie', 'Palcom posúvajte krúžok vľavo dole – do strán, hore a dole']],
+  places: { 'Entrance': 'Vstup', 'Living room': 'Obývačka', 'Kitchen': 'Kuchyňa', 'Bathroom': 'Kúpeľňa', 'Bedroom': 'Spálňa', 'Balcony': 'Balkón', 'Loft': 'Galéria' },
+} : {
+  prep: 'Preparing the flat…', loading: (d, t) => `Loading ${d} of ${t} files`,
+  dataErr: 'The flat data could not be loaded. Reload the page to try again.',
+  fileErr: (f) => `A file did not load (${f}). Reload the page to try again.`,
+  level: 'Floor level', goto: 'Go to', title: (n) => n + ' Walkthrough',
+  guide: 'How to move', ok: 'Got it', help: 'How to move',
+  mouse: [['Look around', 'Hold the left mouse button and move the mouse (the cursor hides), or the arrow keys ← →'],
+          ['Walk forward and back', 'W and S, or the arrow keys ↑ ↓'],
+          ['Step left and right', 'A and D']],
+  touch: [['Walk forward and back', 'Slide a finger anywhere on the screen up or down'],
+          ['Step left and right', 'Slide the same finger left or right'],
+          ['Look around', 'Push the ring at the bottom left with your thumb - to the sides, up and down']],
+  places: {},
+};
+$('msg').textContent = T.prep; document.querySelector('#level .lab').textContent = T.level; $('places').setAttribute('aria-label', T.goto);
+// half-size lightmaps only for phones and tablets that report little memory. Not on computers: Brave (Shields on) tells
+// websites a random memory size between 0.5 GB and the real one, which picked the half-size set on a 16 GB notebook.
+// ?tex=full or ?tex=low overrides.
+const texQ = new URLSearchParams(location.search).get('tex');
+const lowTex = texQ === 'low' || (texQ !== 'full' && touch && !!(navigator.deviceMemory && navigator.deviceMemory <= 4));
+if (window.__studio) document.querySelector('#brand .sub').textContent = 'Latest bake on this computer';
+
+// ---------------------------------------------------------------- renderer: everything is pre-lit, so no lights and no tone mapping
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, touch ? 2 : 1.75));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NoToneMapping;
+$('view').appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(touch ? 74 : 68, innerWidth / innerHeight, 0.05, 500);
+camera.rotation.order = 'YXZ';
+
+const manager = new THREE.LoadingManager();
+manager.onProgress = (url, done, total) => {
+  $('bar').style.width = Math.round(100 * done / total) + '%';
+  $('msg').textContent = T.loading(done, total);
+};
+let meta;
+try { meta = await (await fetch('flat.json')).json(); }
+catch (e) { $('msg').textContent = T.dataErr; throw e; }
+// the flat's own name, subtitle and floor level (one page serves every flat)
+if (meta.name) {
+  document.querySelector('#brand .name').textContent = meta.name; document.querySelector('#loader .name').textContent = meta.name;
+  document.title = T.title(meta.name);
+}
+if (meta.sub && !window.__studio) document.querySelector('#brand .sub').textContent = meta.sub;
+if (meta.hideLevel && !window.__studio) {   // website export (Jano, 6 Oct): the floor number in the subtitle is enough
+  $('level').style.display = 'none'; document.querySelector('#brand').style.maxWidth = 'calc(100vw - 32px)';
+}
+if (Array.isArray(meta.switch) && meta.switch.length > 1 && !window.__studio) {   // website export (Jano, 8 Oct): switch A32 <-> A25
+  const sw = document.createElement('nav'); sw.id = 'flatSwitch'; sw.className = 'chip'; sw.setAttribute('aria-label', document.documentElement.lang === 'sk' ? 'Byt' : 'Flat');
+  for (const f of meta.switch) {
+    const a = document.createElement('a'); a.href = f.href;
+    const full = document.createElement('span'); full.className = 'full'; full.textContent = f.name;
+    const short = document.createElement('span'); short.className = 'short'; short.textContent = f.short || f.name;
+    a.append(full, short);
+    if (f.current) { a.setAttribute('aria-current', 'page'); a.addEventListener('click', (e) => e.preventDefault()); }
+    sw.appendChild(a);
+  }
+  document.body.appendChild(sw);
+  document.querySelector('#brand').style.maxWidth = `calc(100vw - ${32 + sw.offsetWidth + 8}px)`;   // the name never runs under it
+}
+if (window.__studio && meta.bake && meta.bake.quality) {   // which bake this is: quality, samples, when, which lightmap size
+  const b = meta.bake, sub = document.querySelector('#brand .sub');
+  const when = b.time ? new Date(b.time * 1000).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  sub.textContent = [b.quality, when && 'baked ' + when, lowTex ? 'half-size lightmaps' : 'full lightmaps'].filter(Boolean).join(' · ');
+  sub.title = Object.entries(b.groups || {}).map(([k, g]) => k + ': ' + g.res + ' px, ' + g.spp + ' samples' + (g.reused ? ' (reused)' : '')).join('\n');
+}
+
+const texLoader = new THREE.TextureLoader(manager);
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+function lightmap(url) {
+  const t = texLoader.load(url);
+  t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = Math.min(8, maxAniso);
+  return t;
+}
+// the view out of the windows: a 360° render of the street from the balcony, on a sphere that follows the camera
+const pano = texLoader.load(lowTex ? meta.pano.mobile : meta.pano.full);
+pano.colorSpace = THREE.SRGBColorSpace; pano.wrapS = THREE.RepeatWrapping; pano.repeat.x = -1; pano.offset.x = 1;
+scene.background = new THREE.Color(0xbfd3e6);
+const sky = new THREE.Mesh(new THREE.SphereGeometry(300, 64, 32),
+  new THREE.MeshBasicMaterial({ map: pano, side: THREE.BackSide, depthWrite: false, fog: false }));
+sky.renderOrder = -1; scene.add(sky);
+
+const draco = new DRACOLoader(); draco.setDecoderPath('draco/'); draco.setDecoderConfig({ type: 'js' });
+const gltf = new GLTFLoader(manager); gltf.setDRACOLoader(draco);
+const gltfRaw = new GLTFLoader(manager);
+let dracoFailed = false;
+const pickables = [];
+function addFlat(g) {
+  g.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    const key = o.name.replace(/^lm_/, '').replace(/[._]\d+$/, '');
+    const t = meta.textures[key];
+    if (!t) return;
+    o.material = new THREE.MeshBasicMaterial({ map: lightmap(lowTex ? t.mobile : t.full), side: key === 'shell' ? THREE.FrontSide : THREE.DoubleSide });
+    if (key === 'sheer') { o.material.transparent = true; o.material.opacity = 0.62; o.material.depthWrite = false; o.renderOrder = 1; }   // sheer curtains
+    if (t.alpha) {   // cut-out leaves: alpha-tested with a baked mask on the same uv
+      const a = texLoader.load(lowTex ? t.alpha_m : t.alpha);
+      a.flipY = false; a.colorSpace = THREE.NoColorSpace; a.anisotropy = Math.min(8, maxAniso);
+      o.material.alphaMap = a; o.material.alphaTest = 0.5;
+    }
+    o.userData.group = key; pickables.push(o);
+  });
+  scene.add(g.scene);
+}
+// compressed geometry first; if the Draco decoder cannot run here, fall back to the uncompressed copy
+gltf.load('flat_glb.wasm', addFlat, undefined, () => { dracoFailed = true; (meta.raw && meta.raw.length ? meta.raw : ['flat_raw.glb']).forEach((f) => gltfRaw.load(f.replace(/\.glb$/, '_glb.wasm'), addFlat)); });
+gltf.load('glass_glb.wasm', (g) => {
+  const m = new THREE.MeshBasicMaterial({ color: 0xe8f0f4, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false });
+  const edge = new THREE.MeshBasicMaterial({ color: 0x9fbfb0, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
+  g.scene.traverse((o) => { if (o.isMesh) { o.material = /edge/i.test((o.material && o.material.name) || '') ? edge : m; o.renderOrder = 2; } });
+  scene.add(g.scene);
+});
+manager.onLoad = () => { $('loader').classList.add('done'); if (!window.__studio && !guideSeen) showGuide(true); };
+manager.onError = (url) => { if (url.endsWith('flat_glb.wasm')) return; $('msg').textContent = T.fileErr(url.split('/').pop()); };
+
+// ---------------------------------------------------------------- how to move: a short guide when the flat is ready (website), "?" opens it again
+const ICON = {
+  mouse: '<svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="10" y="4" width="14" height="24" rx="7"/><path d="M17 4v8M10 12h7"/><path d="M17 4a7 7 0 0 0-7 7v1h7z" fill="currentColor" stroke="none" opacity=".55"/></svg>',
+  ringV: '<svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="17" cy="17" r="14" opacity=".6"/><circle cx="17" cy="17" r="5" fill="currentColor"/><path d="M17 3.5v5M14.5 6l2.5-2.5L19.5 6M17 25.5v5M14.5 28l2.5 2.5 2.5-2.5"/></svg>',
+  ringH: '<svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="17" cy="17" r="14" opacity=".6"/><circle cx="17" cy="17" r="5" fill="currentColor"/><path d="M3.5 17h5M6 14.5L3.5 17 6 19.5M25.5 17h5M28 14.5l2.5 2.5-2.5 2.5"/></svg>',
+  drag: '<svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="17" cy="20" r="4.5" fill="currentColor"/><path d="M5 11h24M8.5 7.5L5 11l3.5 3.5M25.5 7.5L29 11l-3.5 3.5"/></svg>',
+};
+const K = (...ks) => ks.map((k) => `<kbd>${k}</kbd>`).join('');
+ICON.dragV = '<svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="20" cy="17" r="4.5" fill="currentColor"/><path d="M9 5v24M5.5 8.5L9 5l3.5 3.5M5.5 25.5L9 29l3.5-3.5"/></svg>';
+ICON.ring = '<svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="17" cy="17" r="14" opacity=".6"/><circle cx="17" cy="17" r="5" fill="currentColor"/><path d="M14.5 6l2.5-2.5L19.5 6M14.5 28l2.5 2.5 2.5-2.5M6 14.5L3.5 17 6 19.5M28 14.5l2.5 2.5-2.5 2.5"/></svg>';
+const guideKeys = touch ? [ICON.dragV, ICON.drag, ICON.ring]
+  : [ICON.mouse + K('←', '→'), K('W', 'S') + '<span>/</span>' + K('↑', '↓'), K('A', 'D')];
+$('guideTitle').textContent = T.guide; $('guideOk').textContent = T.ok;
+$('help').setAttribute('aria-label', T.help); $('help').title = T.help;
+$('guideList').innerHTML = (touch ? T.touch : T.mouse).map(([what, how], i) =>
+  `<li><div class="keys">${guideKeys[i]}</div><div class="what"><b>${what}</b><span>${how}</span></div></li>`).join('');
+let guideSeen = false, guideWalk = 0;
+function showGuide(on) {
+  $('guide').hidden = !on; $('help').setAttribute('aria-expanded', on ? 'true' : 'false');
+  if (on) { guideSeen = true; guideWalk = 0; $('guideOk').focus({ preventScroll: true }); }
+}
+$('guideOk').addEventListener('click', () => showGuide(false));
+$('help').addEventListener('click', () => showGuide($('guide').hidden));
+if (!window.__studio) { $('help').hidden = false; $('hint').hidden = true; }
+
+// ---------------------------------------------------------------- walkable floor: up to two layers per 5 cm cell (ground floor + mezzanine)
+const W = meta.walk;
+const layers = W.layers.map((b64) => {
+  const bin = atob(b64); const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new Uint16Array(u8.buffer);
+});
+function floorAt(x, z, y, reach = 0.42) {
+  const i = Math.floor((x - W.gx0) / W.cs), j = Math.floor((-z - W.gy0) / W.cs);
+  if (i < 0 || j < 0 || i >= W.nx || j >= W.ny) return null;
+  let best = null, bd = reach;
+  for (const L of layers) {
+    const v = L[j * W.nx + i]; if (!v) continue;
+    const h = v / 1000 + W.base, d = Math.abs(h - y);
+    if (d < bd) { bd = d; best = h; }
+  }
+  return best;
+}
+
+// ---------------------------------------------------------------- player
+const EYE = meta.eye || 1.62;
+const player = { x: 0, z: 0, feet: 0, target: 0, yaw: 0, pitch: -0.05 };
+function lookFrom(pos, at) {
+  player.x = pos[0]; player.z = pos[2]; player.feet = player.target = pos[1];
+  const dx = at[0] - pos[0], dy = at[1] - (pos[1] + EYE), dz = at[2] - pos[2];
+  player.yaw = Math.atan2(-dx, -dz); player.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+}
+const places = (meta.places || [{ name: 'Entrance', pos: meta.start, look: meta.look }]).map((p) => ({ ...p, name: T.places[p.name] || p.name }));
+places.forEach((p, k) => {
+  const b = document.createElement('button'); b.type = 'button'; b.id = 'go' + k; b.textContent = p.name;
+  b.setAttribute('aria-pressed', k === 0 ? 'true' : 'false');
+  b.addEventListener('click', () => {
+    lookFrom(p.pos, p.look);
+    document.querySelectorAll('#places button').forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+  });
+  $('places').appendChild(b);
+});
+lookFrom(places[0].pos, places[0].look);
+
+// ---------------------------------------------------------------- review notes: pin a spot in 3D, write what should change (kept with the artifact)
+const notesUI = (() => {
+  const st = { db: null, me: null, owner: false, list: [], pins: [], mode: false, draft: null, shot: '', hl: null, editing: null, later: false, hideDone: true };   // done notes hidden until asked
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  const pinTex = new Map();
+  function pinTexture(label, done) {
+    const key = label + (done ? '|d' : '');
+    if (pinTex.has(key)) return pinTex.get(key);
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+    g.beginPath(); g.arc(32, 32, 27, 0, Math.PI * 2); g.fillStyle = done ? '#6f6a62' : '#c9a77c'; g.fill();
+    g.lineWidth = 4; g.strokeStyle = '#1d1913'; g.stroke();
+    g.fillStyle = done ? '#f3efe8' : '#1d1913'; g.font = '600 28px Hanken Grotesk, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(label, 32, 34);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; pinTex.set(key, t); return t;
+  }
+  function makePin(label, pos, done) {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: pinTexture(label, done), depthTest: false, sizeAttenuation: false, transparent: true, opacity: done ? 0.8 : 1 }));
+    sp.scale.set(0.055, 0.055, 1); sp.position.set(pos[0], pos[1], pos[2]); sp.renderOrder = 10; scene.add(sp); return sp;
+  }
+  function screenToRay(x, y) {
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera);
+  }
+  function snapshot() {
+    renderer.render(scene, camera);
+    const src = renderer.domElement, w = 560, h = Math.round(w * src.height / src.width);
+    const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(src, 0, 0, w, h);
+    try { return c.toDataURL('image/jpeg', 0.7); } catch (_) { return ''; }
+  }
+  function setMode(on) {
+    if (on && typeof measure !== 'undefined' && measure.active()) measure.off();
+    st.mode = on; document.body.classList.toggle('noting', on); $('addNote').setAttribute('aria-pressed', on ? 'true' : 'false');
+    const h = $('hint');
+    if (on) { h.textContent = touch ? 'Tap the spot you want changed' : 'Click the spot you want changed'; h.classList.remove('gone'); }
+    else h.classList.add('gone');
+  }
+  function cancel() {
+    if (st.draft) { scene.remove(st.draft.pin); st.draft = null; }
+    $('notePanel').hidden = true; setMode(false);
+  }
+  function tap(x, y) {
+    if (!st.db) return;
+    screenToRay(x, y);
+    if (!st.mode) {   // a tap on an existing pin opens the list at that note
+      const hit = ray.intersectObjects(st.pins.map((p) => p.sprite), false)[0];
+      if (hit) { const p = st.pins.find((q) => q.sprite === hit.object); openList(p.id); }
+      return;
+    }
+    const hit = ray.intersectObjects(pickables, false)[0];
+    if (!hit) return;
+    const n = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : new THREE.Vector3();
+    const pos = hit.point.clone().addScaledVector(n, 0.02);
+    if (st.draft) scene.remove(st.draft.pin);
+    st.draft = { pos: [+pos.x.toFixed(3), +pos.y.toFixed(3), +pos.z.toFixed(3)], group: hit.object.userData.group || '' };
+    st.draft.pin = makePin('+', st.draft.pos);
+    st.shot = snapshot();
+    setMode(false);
+    $('noteTitle').textContent = 'Note ' + nextNumber(); $('noteMsg').textContent = '';
+    $('notePanel').hidden = false; $('noteText').value = ''; $('noteText').focus();
+  }
+  const nextNumber = () => st.list.reduce((m, d) => Math.max(m, d.n || 0), 0) + 1;
+  async function save() {
+    const text = $('noteText').value.trim();
+    if (!text) { $('noteMsg').textContent = 'Write what should change first.'; return; }
+    if (!st.draft) return;
+    $('noteSave').disabled = true; $('noteMsg').textContent = 'Saving…';
+    const body = { n: nextNumber(), text, pos: st.draft.pos, group: st.draft.group, shot: st.shot,
+      cam: { x: +player.x.toFixed(3), z: +player.z.toFixed(3), feet: +player.target.toFixed(3), yaw: +player.yaw.toFixed(4), pitch: +player.pitch.toFixed(4) },
+      author: st.me, created: new Date().toISOString(), status: 'open' };
+    body.updated = body.created;
+    try {
+      await st.db.collection('notes').doc().set(body);
+      scene.remove(st.draft.pin); st.draft = null; $('notePanel').hidden = true;
+    } catch (e) {
+      $('noteMsg').textContent = e && e.code === 'invalid_argument' ? 'You can view notes here but not add them.' : 'The note was not saved. Try Save again.';
+    } finally { $('noteSave').disabled = false; }
+  }
+  const mine = (d) => st.owner || (st.me && d.author === st.me);
+  async function change(d, patch, btn) {
+    btn.disabled = true;
+    try { await st.db.doc('notes/' + d.id).update(Object.assign(patch, { updated: new Date().toISOString() })); return true; }
+    catch (e) { btn.disabled = false; btn.textContent = e && e.code === 'invalid_argument' ? 'Not allowed' : 'Not saved, try again'; return false; }
+  }
+  function editor(d) {
+    const box = document.createElement('div'); box.className = 'edit';
+    const ta = document.createElement('textarea'); ta.value = st.editing.text; ta.setAttribute('aria-label', 'Text of note ' + (d.n || ''));
+    ta.addEventListener('input', () => { st.editing.text = ta.value; });
+    box.append(ta);
+    let re = null;
+    if (d.status === 'done') {
+      const lab = document.createElement('label'); re = document.createElement('input'); re.type = 'checkbox'; re.checked = st.editing.reopen;
+      re.addEventListener('change', () => { st.editing.reopen = re.checked; });
+      lab.append(re, document.createTextNode('Reopen, so it gets worked on again')); box.append(lab);
+    }
+    const row = document.createElement('div'); row.className = 'row';
+    const msg = document.createElement('span'); msg.className = 'grow';
+    const cancelB = document.createElement('button'); cancelB.type = 'button'; cancelB.textContent = 'Cancel';
+    cancelB.addEventListener('click', () => { st.editing = null; render(true); });
+    const saveB = document.createElement('button'); saveB.type = 'button'; saveB.className = 'primary'; saveB.textContent = 'Save';
+    saveB.addEventListener('click', async () => {
+      const text = ta.value.trim();
+      if (!text) { msg.textContent = 'The note needs some text.'; return; }
+      const patch = { text, edited: new Date().toISOString() };
+      if (re && re.checked) patch.status = 'open';
+      if (await change(d, patch, saveB)) { st.editing = null; render(true); }
+    });
+    row.append(msg, cancelB, saveB); box.append(row);
+    setTimeout(() => { if (document.activeElement === document.body) ta.focus(); }, 0);
+    return box;
+  }
+  function render(force) {
+    // a snapshot arriving while a note is being edited only refreshes the pins; the list waits for the edit to end
+    const busy = !force && st.editing && $('notesOl').contains(document.activeElement);
+    for (const p of st.pins) scene.remove(p.sprite);
+    const shown = st.list.filter((d) => !(st.hideDone && d.status === 'done'));
+    st.pins = shown.map((d) => ({ id: d.id, sprite: makePin(String(d.n || '?'), d.pos || [0, -99, 0], d.status === 'done') }));
+    $('showNotes').textContent = st.list.length ? 'Notes · ' + st.list.length : 'Notes';
+    if (busy) { st.later = true; return; }
+    st.later = false;
+    const ol = $('notesOl'); ol.textContent = '';
+    if (!st.list.length) {
+      const li = document.createElement('div'); li.className = 'empty';
+      li.textContent = 'No notes yet. Press Add note, then click or tap the thing you want changed and describe the change.';
+      ol.appendChild(li); return;
+    }
+    if (!shown.length) {
+      const li = document.createElement('div'); li.className = 'empty';
+      li.textContent = 'Every note is marked done. Turn off Hide done to see them again.';
+      ol.appendChild(li); return;
+    }
+    for (const d of shown) {
+      const li = document.createElement('li'); li.id = 'note-' + d.id; if (d.id === st.hl) li.classList.add('hl'); if (d.status === 'done') li.classList.add('done');
+      const num = document.createElement('div'); num.className = 'num'; num.textContent = d.n || '?';
+      const b = document.createElement('div'); b.className = 'body';
+      const editing = st.editing && st.editing.id === d.id;
+      const t = document.createElement('div'); t.className = 'txt'; t.textContent = d.text || '';
+      const m = document.createElement('div'); m.className = 'meta';
+      m.textContent = (d.created ? new Date(d.created).toLocaleString() : '') + (d.edited ? ' · edited ' + new Date(d.edited).toLocaleString() : '');
+      b.append(editing ? editor(d) : t);
+      if (d.shot) { const im = document.createElement('img'); im.src = d.shot; im.alt = 'View when note ' + (d.n || '') + ' was added'; b.append(im); }
+      if (d.reply) {
+        const r = document.createElement('div'); r.className = 'reply';
+        const w = document.createElement('span'); w.className = 'who'; w.textContent = d.status === 'done' ? 'Done' + (d.round ? ' · ' + d.round : '') : 'Earlier reply' + (d.round ? ' · ' + d.round : '');
+        r.append(w, document.createTextNode(d.reply)); b.append(r);
+      }
+      const row = document.createElement('div'); row.className = 'row';
+      row.append(m); m.classList.add('grow');
+      const acts = document.createElement('div'); acts.className = 'acts';
+      const go = document.createElement('button'); go.type = 'button'; go.textContent = 'Go to view';
+      go.addEventListener('click', () => { const c = d.cam; if (!c) return; player.x = c.x; player.z = c.z; player.feet = player.target = c.feet; player.yaw = c.yaw; player.pitch = c.pitch; });
+      acts.append(go);
+      if (mine(d) && !editing) {
+        const ed = document.createElement('button'); ed.type = 'button'; ed.textContent = 'Edit';
+        ed.addEventListener('click', () => { st.editing = { id: d.id, text: d.text || '', reopen: true }; render(true); });
+        const tg = document.createElement('button'); tg.type = 'button'; tg.textContent = d.status === 'done' ? 'Reopen' : 'Mark done';
+        tg.addEventListener('click', () => change(d, { status: d.status === 'done' ? 'open' : 'done' }, tg));
+        acts.append(ed, tg);
+      }
+      if (mine(d) && !editing) {
+        const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Delete';
+        let armed = false;
+        del.addEventListener('click', async () => {
+          if (!armed) { armed = true; del.textContent = 'Confirm delete'; setTimeout(() => { armed = false; del.textContent = 'Delete'; }, 3000); return; }
+          try { await st.db.doc('notes/' + d.id).delete(); } catch (_) { del.textContent = 'Not deleted'; }
+        });
+        acts.append(del);
+      }
+      b.append(row, acts); li.append(num, b); ol.appendChild(li);
+    }
+  }
+  $('notesOl').addEventListener('focusout', () => setTimeout(() => { if (st.later && !$('notesOl').contains(document.activeElement)) render(); }, 0));
+  function openList(id) {
+    st.hl = id || null; render(); $('notesList').hidden = false;
+    if (id) { const el = document.getElementById('note-' + id); if (el) el.scrollIntoView({ block: 'nearest' }); }
+  }
+  $('addNote').addEventListener('click', () => { if (st.draft) cancel(); setMode(!st.mode); });
+  $('showNotes').addEventListener('click', () => { if ($('notesList').hidden) openList(); else $('notesList').hidden = true; });
+  $('closeNotes').addEventListener('click', () => { $('notesList').hidden = true; });
+  $('hideDone').addEventListener('click', () => { st.hideDone = !st.hideDone; $('hideDone').setAttribute('aria-pressed', st.hideDone ? 'true' : 'false'); render(); });
+  $('noteCancel').addEventListener('click', cancel);
+  $('noteSave').addEventListener('click', save);
+  (async () => {
+    if (typeof window.claude?.use !== 'function') return;
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    if (!db) return;
+    st.db = db;
+    if (user) { st.me = await user.id(); st.owner = await user.isOwner(); }
+    const can = user ? await user.can('data.write') : null;
+    $('tools').hidden = false; if (can === false) $('addNote').hidden = true;
+    db.collection('notes').orderBy('n').onSnapshot((snap) => {
+      st.list = snap.docs.map((d) => ({ id: d.id, ...d.data() })); render();
+    }, () => { $('tools').hidden = true; });
+  })();
+  return { tap, cancel };
+})();
+
+// ---------------------------------------------------------------- measure: tap two points, a line and the distance between them
+const measure = (() => {
+  const SKm = /^sk/i.test(document.documentElement.lang || '') || new URLSearchParams(location.search).get('lang') === 'sk';
+  const L = SKm ? { a: 'Klepnite na prvý bod', b: 'Klepnite na druhý bod', again: 'Klepnite na ďalší bod pre nové meranie', name: 'Meranie' }
+               : { a: touch ? 'Tap the first point' : 'Click the first point', b: touch ? 'Tap the second point' : 'Click the second point',
+                   again: touch ? 'Tap again to start a new measurement' : 'Click again to start a new measurement', name: 'Measure' };
+  const btn = $('measure'), lab = $('mLabel'); btn.setAttribute('aria-label', L.name); btn.title = L.name;
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  const st = { on: false, a: null, b: null, objs: [] };
+  function dotTex() {
+    const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d');
+    g.beginPath(); g.arc(16, 16, 11, 0, Math.PI * 2); g.fillStyle = '#c9a77c'; g.fill(); g.lineWidth = 4; g.strokeStyle = '#1d1913'; g.stroke();
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  const dot = dotTex();
+  function add(o) { o.renderOrder = 11; scene.add(o); st.objs.push(o); return o; }
+  function clear() { for (const o of st.objs) scene.remove(o); st.objs = []; st.a = st.b = null; lab.hidden = true; }
+  function hint(t) { const h = $('hint'); h.textContent = t; h.classList.remove('gone'); }
+  function set(on) {
+    st.on = on; btn.setAttribute('aria-pressed', String(on)); clear();
+    if (on) { notesUI.cancel(); hint(L.a); } else $('hint').classList.add('gone');
+  }
+  btn.addEventListener('click', () => set(!st.on));
+  function tap(x, y) {
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(pickables, false)[0];
+    if (!hit) return;
+    const p = hit.point.clone();
+    if (st.b) clear();
+    const sp = add(new THREE.Sprite(new THREE.SpriteMaterial({ map: dot, depthTest: false, sizeAttenuation: false, transparent: true })));
+    sp.scale.set(0.028, 0.028, 1); sp.position.copy(p);
+    if (!st.a) { st.a = p; hint(L.b); return; }
+    st.b = p;
+    const g = new THREE.BufferGeometry().setFromPoints([st.a, st.b]);
+    add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xc9a77c, depthTest: false, transparent: true })));
+    const d = st.a.distanceTo(st.b), dv = Math.abs(st.b.y - st.a.y), dh = Math.hypot(st.b.x - st.a.x, st.b.z - st.a.z);
+    const f = (v) => v.toFixed(2).replace('.', SKm ? ',' : '.') + ' m';
+    lab.innerHTML = f(d) + (dv > 0.01 && dh > 0.01 ? '<small>' + (SKm ? 'vodorovne ' : 'level ') + f(dh) + ' · ' + (SKm ? 'zvislo ' : 'height ') + f(dv) + '</small>' : '');
+    lab.hidden = false; hint(L.again); update();
+  }
+  const v = new THREE.Vector3();
+  function update() {                             // keep the length label over the middle of the line
+    if (!st.b) return;
+    v.copy(st.a).add(st.b).multiplyScalar(0.5).project(camera);
+    const vis = v.z < 1 && Math.abs(v.x) < 1.2 && Math.abs(v.y) < 1.2;
+    lab.style.visibility = vis ? 'visible' : 'hidden';
+    if (vis) { const r = renderer.domElement.getBoundingClientRect(); lab.style.left = (r.left + (v.x + 1) / 2 * r.width) + 'px'; lab.style.top = (r.top + (1 - v.y) / 2 * r.height) + 'px'; }
+  }
+  return { tap, update, active: () => st.on, off: () => set(false) };
+})();
+const tapAt = (x, y) => (measure.active() ? measure.tap(x, y) : notesUI.tap(x, y));
+
+// ---------------------------------------------------------------- input: keys + mouse (pointer lock or drag) + touch (stick + look)
+const keys = new Set();
+const typing = (e) => e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT');
+addEventListener('keydown', (e) => {
+  if (typing(e)) return;
+  if (e.code === 'Escape') { notesUI.cancel(); if (measure.active()) measure.off(); if (!$('guide').hidden) showGuide(false); }
+  if (e.code === 'Space') {                       // jump (and keep Space from pressing a focused button or scrolling)
+    e.preventDefault(); if (document.activeElement && document.activeElement.tagName === 'BUTTON') document.activeElement.blur();
+    if (!e.repeat && pose.up === 0 && pose.vy === 0) pose.vy = 3.1;
+  }
+  if (e.code === 'KeyC' && !e.repeat) { pose.crouch = !pose.crouch; moved(); }   // crouch on / off
+  keys.add(e.code);
+});
+addEventListener('keyup', (e) => { keys.delete(e.code); });
+addEventListener('blur', () => keys.clear());
+const cv = renderer.domElement;
+let dragging = false, lastX = 0, lastY = 0;
+const LOOK = 0.0028;
+function turn(dx, dy) {
+  player.yaw -= dx * LOOK; player.pitch = Math.max(-1.35, Math.min(1.35, player.pitch - dy * LOOK)); moved();
+}
+// desktop (Jano, 6 Oct): hold the left button to look around - the cursor hides and stays put (pointer lock) and comes
+// back where it was on release. A short click without moving is still a click (notes). Without pointer lock: plain drag.
+let downX = 0, downY = 0, downT = 0, moveSum = 0;
+const locked = () => document.pointerLockElement === cv;
+cv.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  dragging = true; lastX = downX = e.clientX; lastY = downY = e.clientY; downT = e.timeStamp; moveSum = 0;
+  try { const p = cv.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (_) {}
+});
+addEventListener('mouseup', (e) => {
+  if (e.button !== 0 || !dragging) return;
+  const click = moveSum < 6 && e.timeStamp - downT < 500;      // event times: a slow frame between them doesn't matter
+  dragging = false;
+  if (locked()) document.exitPointerLock();
+  if (click) tapAt(downX, downY);
+});
+addEventListener('mousemove', (e) => {
+  if (!dragging) return;
+  if (locked()) {
+    if (skipLock) { skipLock = false; return; }                   // the first event after locking can jump
+    if (Math.abs(e.movementX) > 200 || Math.abs(e.movementY) > 200) return;   // so can the cursor being parked (not a hand move)
+    const mx = e.movementX, my = e.movementY;
+    turn(mx, my); moveSum += Math.abs(mx) + Math.abs(my);
+  }
+  else { turn(e.clientX - lastX, e.clientY - lastY); moveSum += Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY); lastX = e.clientX; lastY = e.clientY; }
+});
+let skipLock = false;
+document.addEventListener('pointerlockchange', () => {
+  if (locked()) skipLock = true;                  // (if it ends early, e.g. Esc, the drag goes on as a plain drag)
+});
+// touch (Jano, 6 / 8 Oct): a finger anywhere slides up / down to walk forward / back (how far from where it landed sets the
+// pace) and left / right to step aside; the ring at the bottom left looks around - to the sides and up / down
+const stick = { id: null, cx: 0, cy: 0, dx: 0, dy: 0 }, looks = new Map(), walkT = { id: null, sx: 0, sy: 0, f: 0, s: 0 };
+const knob = document.querySelector('#stick .knob');
+const taps = new Map();
+document.addEventListener('touchstart', (e) => {
+  if (e.target.closest('button, a, .panel')) return;              // (links: the flat switch of the website export)
+  for (const t of e.changedTouches) {
+    const r = $('stick').getBoundingClientRect();
+    if (stick.id === null && t.clientX < r.right + 40 && t.clientY > r.top - 60) {
+      stick.id = t.identifier; stick.cx = r.left + r.width / 2; stick.cy = r.top + r.height / 2; moveStick(t);
+    } else {
+      looks.set(t.identifier, [t.clientX, t.clientY]); taps.set(t.identifier, [t.clientX, t.clientY, performance.now()]);
+      if (walkT.id === null) { walkT.id = t.identifier; walkT.sx = t.clientX; walkT.sy = t.clientY; walkT.f = walkT.s = 0; }
+    }
+  }
+  e.preventDefault();
+}, { passive: false });
+document.addEventListener('touchmove', (e) => {
+  if (e.target.closest('.panel')) return;
+  for (const t of e.changedTouches) {
+    if (t.identifier === stick.id) moveStick(t);
+    else if (looks.has(t.identifier)) {
+      looks.set(t.identifier, [t.clientX, t.clientY]);           // (Jano, 8 Oct: the finger walks and steps aside - turning is the ring's)
+      if (t.identifier === walkT.id) {          // up / down walks, left / right steps aside (Jano, 8 Oct)
+        const pace = (d) => Math.abs(d) < 12 ? 0 : Math.max(-1, Math.min(1, (d - Math.sign(d) * 12) / 90));
+        walkT.f = pace(walkT.sy - t.clientY); walkT.s = pace(t.clientX - walkT.sx); moved();
+      }
+    }
+  }
+  e.preventDefault();
+}, { passive: false });
+function endTouch(e) {
+  for (const t of e.changedTouches) {
+    const tp = taps.get(t.identifier); taps.delete(t.identifier);
+    if (tp && e.type === 'touchend' && Math.hypot(t.clientX - tp[0], t.clientY - tp[1]) < 10 && performance.now() - tp[2] < 450) tapAt(t.clientX, t.clientY);
+    if (t.identifier === stick.id) { stick.id = null; stick.dx = stick.dy = 0; knob.style.transform = ''; }
+    looks.delete(t.identifier);
+    if (t.identifier === walkT.id) { walkT.id = null; walkT.f = walkT.s = 0; }
+  }
+}
+document.addEventListener('touchend', endTouch); document.addEventListener('touchcancel', endTouch);
+function moveStick(t) {
+  let dx = t.clientX - stick.cx, dy = t.clientY - stick.cy; const r = Math.hypot(dx, dy), max = 46;
+  if (r > max) { dx *= max / r; dy *= max / r; }
+  stick.dx = dx / max; stick.dy = dy / max; knob.style.transform = `translate(${dx}px, ${dy}px)`; moved();
+}
+let hintTimer = null;
+function moved() { if (!hintTimer) hintTimer = setTimeout(() => $('hint').classList.add('gone'), 2500); }
+
+// ---------------------------------------------------------------- movement with slide-along-walls and stairs following the floor grid
+const clock = new THREE.Clock();
+const pose = { up: 0, vy: 0, crouch: false, eye: EYE };   // jump height above the floor, its speed, crouching, eye height
+const CROUCH_EYE = 1.05, GRAVITY = 9.81;
+const LEVEL0 = typeof meta.level === 'number' ? meta.level : 20.05;   // finished floor of the entrance level, metres above the building's ±0.000
+function step(dt) {
+  let f = 0, s = 0;
+  if (keys.has('KeyW') || keys.has('ArrowUp')) f += 1;
+  if (keys.has('KeyS') || keys.has('ArrowDown')) f -= 1;
+  if (keys.has('KeyA')) s -= 1;
+  if (keys.has('KeyD')) s += 1;
+  if (keys.has('ArrowLeft')) player.yaw += 1.8 * dt;
+  if (keys.has('ArrowRight')) player.yaw -= 1.8 * dt;
+  f += walkT.f; s += walkT.s;
+  if (stick.id !== null) {                         // the ring looks around: left / right turns, up / down tilts
+    player.yaw -= stick.dx * 1.9 * dt; player.pitch = Math.max(-1.35, Math.min(1.35, player.pitch - stick.dy * 1.3 * dt));
+  }
+  const mag = Math.hypot(f, s);
+  if (mag > 0.05) {
+    moved();
+    if (!$('guide').hidden && (guideWalk += dt) > 1.5) showGuide(false);   // they have found how to walk
+    const speed = (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 2.2 : 1.35) * (pose.crouch ? 0.55 : 1) * Math.min(1, mag) / mag;
+    const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
+    const dx = (fx * f + rx * s) * speed * dt, dz = (fz * f + rz * s) * speed * dt;
+    const tries = [[dx, dz], [dx, 0], [0, dz]];
+    for (const [ax, az] of tries) {
+      if (!ax && !az) continue;
+      const h = floorAt(player.x + ax, player.z + az, player.target);
+      if (h !== null) { player.x += ax; player.z += az; player.target = h; break; }
+    }
+  }
+  player.feet += (player.target - player.feet) * Math.min(1, dt * 14);
+  if (pose.vy !== 0 || pose.up > 0) {             // jump: up and back down under gravity
+    pose.vy -= GRAVITY * dt; pose.up += pose.vy * dt;
+    if (pose.up <= 0) { pose.up = 0; pose.vy = 0; }
+  }
+  pose.eye += ((pose.crouch ? CROUCH_EYE : EYE) - pose.eye) * Math.min(1, dt * 10);
+  camera.position.set(player.x, player.feet + pose.eye + pose.up, player.z);
+  sky.position.copy(camera.position);
+  camera.rotation.set(player.pitch, player.yaw, 0);
+}
+let lastLevel = '';
+function frame() {
+  if (window.__walkerPaused) { clock.getDelta(); requestAnimationFrame(frame); return; }   // set by the local studio when this tab is hidden
+  const dt = Math.min(0.05, clock.getDelta());
+  step(dt);
+  renderer.render(scene, camera); measure.update();
+  const lv = '+' + (LEVEL0 + player.feet).toFixed(3).replace('.', ',');
+  if (lv !== lastLevel) { $('levelVal').textContent = lv; lastLevel = lv; }
+  requestAnimationFrame(frame);
+}
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight);
+});
+requestAnimationFrame(frame);
+
+// ---------------------------------------------------------------- local studio only: keep this view for a preview render
+// (Bake tab -> Preview renders renders it in full quality from the current model, before a bake)
+if (window.__studio) {
+  const sv = $('saveView'); sv.hidden = false;
+  sv.addEventListener('click', async () => {
+    renderer.render(scene, camera);
+    const src = renderer.domElement, w = 560, h = Math.round(w * src.height / src.width);
+    const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(src, 0, 0, w, h);
+    let shot = ''; try { shot = c.toDataURL('image/jpeg', 0.8); } catch (_) {}
+    const body = { cam: { x: +player.x.toFixed(3), z: +player.z.toFixed(3), feet: +player.target.toFixed(3), yaw: +player.yaw.toFixed(4), pitch: +player.pitch.toFixed(4) },
+      eye: +pose.eye.toFixed(3), fov: camera.fov, aspect: +(innerWidth / innerHeight).toFixed(4), shot };
+    sv.disabled = true; const hint = $('hint');
+    try {
+      const r = await fetch('/api/views?flat=' + encodeURIComponent(window.__studio.flat),
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const j = await r.json();
+      if (!r.ok) throw new Error();
+      hint.textContent = j.view.name + ' saved. Render it under Bake \u2192 Preview renders.';
+    } catch (_) { hint.textContent = 'The view was not saved. Try again.'; }
+    hint.classList.remove('gone'); clearTimeout(hintTimer); hintTimer = setTimeout(() => hint.classList.add('gone'), 4500);
+    sv.disabled = false;
+  });
+}
+</script>
+</body></html>
