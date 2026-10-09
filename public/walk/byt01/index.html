@@ -109,6 +109,22 @@ body.noting #view canvas { cursor: crosshair; }
 #guide .what b { font-weight: 600; }
 #guide .what span { font-size: 12.5px; color: var(--ink-dim); }
 #guide .row button { font-size: 14px; padding: 10px 16px; }
+/* furniture swaps (studio only, Jano 8 Oct): click a placed object, pick another one of the same kind from the library */
+#swapPanel { left: 16px; top: calc(96px + env(safe-area-inset-top, 0px)); max-height: calc(100vh - 172px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); width: min(380px, calc(100vw - 32px)); box-sizing: border-box; padding: 12px; display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 10px; }
+#swapPanel h2 { margin: 0; font: 500 15px/1.2 var(--ui); }
+#swapHead { display: grid; gap: 4px; font-size: 12.5px; color: var(--ink-dim); line-height: 1.4; }
+#swapHead b { color: var(--ink); font-weight: 600; font-size: 14px; }
+#swapHead .state { color: var(--oak); }
+#swapGrid { overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; align-content: start; }
+#swapGrid button { display: grid; gap: 5px; padding: 6px; border-radius: 9px; background: rgba(0, 0, 0, 0.22); text-align: left; font: 500 12px/1.25 var(--ui); color: var(--ink); border: 2px solid transparent; }
+#swapGrid button img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; display: block; background: #d9d6cf; }
+#swapGrid button small { color: var(--ink-dim); font-size: 11px; }
+#swapGrid button[aria-current="true"] { border-color: var(--ink-dim); }
+#swapGrid button[aria-pressed="true"] { border-color: var(--oak); background: rgba(201, 167, 124, 0.18); }
+#swapGrid .empty, #swapGrid .list { grid-column: 1 / -1; font-size: 13px; color: var(--ink-dim); line-height: 1.45; }
+#swapGrid .list { display: grid; gap: 6px; }
+#swapGrid .list div { display: flex; gap: 6px; align-items: center; justify-content: space-between; background: rgba(0, 0, 0, 0.22); border-radius: 8px; padding: 6px 8px; color: var(--ink); }
+body.swapping #view canvas { cursor: pointer; }
 @media (max-width: 560px) { #brand .name { font-size: 19px; } #level .val { font-size: 17px; } #places button { padding: 9px 10px; font-size: 12.5px; flex: none; }
   #brand { max-width: calc(100vw - 172px); box-sizing: border-box; }                       /* clear of the floor-level chip */
   #places { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; touch-action: pan-x; scrollbar-width: none; }   /* one row: clear of the walk ring */
@@ -129,7 +145,7 @@ body.noting #view canvas { cursor: crosshair; }
   <ul id="guideList"></ul>
   <div class="row"><button type="button" id="guideOk" class="primary">Got it</button></div>
 </div>
-<div id="tools" class="chip" hidden><button type="button" id="addNote" aria-pressed="false">Add note</button><button type="button" id="showNotes">Notes</button><button type="button" id="saveView" hidden title="Keep this view for a full-quality preview render (Bake tab)">Save view</button></div>
+<div id="tools" class="chip" hidden><button type="button" id="addNote" aria-pressed="false">Add note</button><button type="button" id="showNotes">Notes</button><button type="button" id="swapBtn" hidden aria-pressed="false" title="Click a piece of furniture and pick another one from the library">Swap</button><button type="button" id="saveView" hidden title="Keep this view for a full-quality preview render (Bake tab)">Save view</button></div>
 <button id="measure" class="chip" type="button" aria-pressed="false" aria-label="Measure" title="Measure: tap two points"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 16.5 16.5 3 21 7.5 7.5 21z"/><path d="M7 12.5l1.8 1.8M9.8 9.7l2.6 2.6M12.6 6.9l1.8 1.8M15.4 4.1"/></svg></button>
 <div id="mLabel" hidden></div>
 <div id="notePanel" class="panel" hidden role="dialog" aria-labelledby="noteTitle">
@@ -139,6 +155,7 @@ body.noting #view canvas { cursor: crosshair; }
   <div class="row"><span class="grow" id="noteMsg"></span><button type="button" id="noteCancel">Cancel</button><button type="button" id="noteSave" class="primary">Save note</button></div>
 </div>
 <div id="notesList" class="panel" hidden><div class="row"><h2 class="grow" style="font-size:15px;color:var(--ink)">Notes</h2><button type="button" id="hideDone" aria-pressed="true">Hide done</button><button type="button" id="closeNotes">Close</button></div><ol id="notesOl"></ol></div>
+<div id="swapPanel" class="panel" hidden role="dialog" aria-labelledby="swapTitle"><div class="row"><h2 class="grow" id="swapTitle" style="color:var(--ink)">Swap furniture</h2><button type="button" id="swapUndo" hidden>Undo swap</button><button type="button" id="swapClose">Close</button></div><div id="swapHead"></div><div id="swapGrid"></div></div>
 <div id="loader"><div class="box"><div class="name">Byt 01</div><div class="bar"><i id="bar"></i></div><div class="msg" id="msg">Preparing the flat…</div></div></div>
 
 <script type="importmap">
@@ -281,7 +298,108 @@ gltf.load('glass_glb.wasm', (g) => {
   g.scene.traverse((o) => { if (o.isMesh) { o.material = /edge/i.test((o.material && o.material.name) || '') ? edge : m; o.renderOrder = 2; } });
   scene.add(g.scene);
 });
-manager.onLoad = () => { $('loader').classList.add('done'); if (!window.__studio && !guideSeen) showGuide(true); };
+// ---------------------------------------------------------------- the shared outside (studio): the 3D walk exterior bake
+// (Bake tab -> Exteriér -> 3D walk, bake_exterior.py) in place of the window panorama - the whole street round the
+// building (neighbours, trees, planting, cars, people) under the flats' own sun. The flat's own outside (its ctx strip,
+// baked with the flat) stays: the shared one is cut away inside that box and inside the flat, the flat's strip outside the
+// box. Toned in the page with the bake's own curve (Blender's AgX table, flats\agx_lut.json), brightness and shadow lift.
+const outsideRoot = new THREE.Group(); outsideRoot.name = 'outside';
+let outsideAsked = false;
+async function loadOutside() {
+  if (outsideAsked) return; outsideAsked = true;
+  let inf, ex, lutJ;
+  try {
+    inf = await (await fetch('/api/outside?flat=' + encodeURIComponent(window.__studio.flat))).json();
+    if (!inf || !inf.baked || !inf.frame) return;
+    [ex, lutJ] = await Promise.all([fetch('/walk/exterior/baked/walk/exterior.json').then((r) => r.json()), fetch('/agx_lut.json').then((r) => r.json())]);
+  } catch (_) { return; }
+  if (!ex || !ex.maps || !lutJ) return;
+  const B = '/walk/exterior/baked/walk/', [W, N, Z0] = inf.frame;
+  const N3 = lutJ.n, rgba = new Uint8Array(N3 * N3 * N3 * 4);
+  for (let i = 0; i < N3 * N3 * N3; i++) { rgba[i * 4] = lutJ.data[i * 3]; rgba[i * 4 + 1] = lutJ.data[i * 3 + 1]; rgba[i * 4 + 2] = lutJ.data[i * 3 + 2]; rgba[i * 4 + 3] = 255; }
+  const lut = new THREE.Data3DTexture(rgba, N3, N3, N3);
+  lut.format = THREE.RGBAFormat; lut.type = THREE.UnsignedByteType; lut.minFilter = lut.magFilter = THREE.LinearFilter;
+  lut.wrapS = lut.wrapT = lut.wrapR = THREE.ClampToEdgeWrapping; lut.unpackAlignment = 1; lut.needsUpdate = true;
+  // cut boxes in page coordinates: model (x, y, z) -> (x - W, z - Z0, N - y)
+  const fb = new THREE.Box3();
+  scene.traverse((o) => { if (o.isMesh && o.userData.group && o.userData.group !== 'ctx') fb.expandByObject(o); });
+  const boxes = [];
+  if (!fb.isEmpty()) boxes.push(fb.min.clone().subScalar(0.02), fb.max.clone().addScalar(0.02));
+  const c = inf.ctx;
+  const ctxBox = c ? [new THREE.Vector3(c[0] - W, c[4] - Z0, N - c[3]), new THREE.Vector3(c[1] - W, c[5] - Z0, N - c[2])] : null;
+  if (ctxBox) boxes.push(...ctxBox);
+  while (boxes.length < 4) boxes.push(new THREE.Vector3(1e6, 1e6, 1e6), new THREE.Vector3(-1e6, -1e6, -1e6));
+  const U = { agxLut: { value: lut }, agxG: { value: Math.pow(2, meta.exposure != null ? meta.exposure : 1.3) }, agxLift: { value: meta.shadows || 0 },
+              agxR: { value: new THREE.Vector3(lutJ.lo, lutJ.hi, N3) }, cutMin: { value: [boxes[0], boxes[2]] }, cutMax: { value: [boxes[1], boxes[3]] } };
+  const TONE = `
+    { vec3 c_ = gl_FragColor.rgb;
+      if (agxLift > 0.0) { float q_ = dot(c_, vec3(0.2126, 0.7152, 0.0722)) / (0.2 / agxG); c_ *= 1.0 + 2.0 * agxLift / (1.0 + q_ * q_); }
+      vec3 f_ = clamp((log2(max(c_ * agxG, vec3(exp2(agxR.x)))) - agxR.x) * (agxR.z - 1.0) / (agxR.y - agxR.x), 0.0, agxR.z - 1.0001);
+      vec3 s_ = texture(agxLut, (f_ + 0.5) / agxR.z).rgb;
+      gl_FragColor.rgb = mix(s_ / 12.92, pow((s_ + 0.055) / 1.055, vec3(2.4)), step(0.04045, s_)); }`;
+  const prep = (m, cut) => {                     // the bake's tone curve, and (shared outside) the cut boxes
+    m.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, U);
+      sh.vertexShader = 'varying vec3 vWp_;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvWp_ = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      sh.fragmentShader = 'precision highp sampler3D;\nuniform sampler3D agxLut; uniform float agxG, agxLift; uniform vec3 agxR; uniform vec3 cutMin[2], cutMax[2];\nvarying vec3 vWp_;\n' +
+        sh.fragmentShader.replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n' + (cut ?
+          'for (int i_ = 0; i_ < 2; i_++) if (all(greaterThan(vWp_, cutMin[i_])) && all(lessThan(vWp_, cutMax[i_]))) discard;' : ''))
+          .replace('#include <tonemapping_fragment>', TONE);
+    };
+    m.customProgramCacheKey = () => 'outside' + (cut ? 1 : 0);
+    return m;
+  };
+  const tl = new THREE.TextureLoader();
+  const tex = (f, uv1) => { const t = tl.load(B + f); t.flipY = !uv1; t.colorSpace = THREE.SRGBColorSpace; if (uv1) t.channel = 1; t.anisotropy = Math.min(8, maxAniso); return t; };
+  const maps = {};
+  for (const [name, m] of Object.entries(ex.maps)) maps[name] = { t: tex(m.file, true), kind: m.kind || 'light', k: m.kind === 'colour' ? m.scale : m.scale * Math.PI };
+  let env = null, skyK = 1;
+  if (ex.sky) {                                  // the sky the bake saw, on the walker's sky sphere instead of the panorama
+    skyK = ex.sky.scale; const st = tex(ex.sky.file, false); st.wrapS = THREE.RepeatWrapping; st.repeat.x = -1; st.offset.x = 1;
+    sky.material = prep(new THREE.MeshBasicMaterial({ map: st, color: new THREE.Color(skyK, skyK, skyK), side: THREE.BackSide, depthWrite: false, fog: false }), false);
+    env = tex(ex.sky.file, false); env.mapping = THREE.EquirectangularReflectionMapping;
+  }
+  const inList = (o, names) => { for (let n = o; n; n = n.parent) if (names.includes(n.name)) return true; return false; };
+  const treeOf = (o) => { for (let n = o; n; n = n.parent) if (/^Tree_/.test(n.name)) return true; return false; };
+  const mapOf = (o) => { for (let n = o; n; n = n.parent) if (maps[n.name]) return maps[n.name]; return null; };
+  new GLTFLoader().setDRACOLoader(draco).load(B + 'exterior.glb', (g) => {
+    g.scene.traverse((o) => {
+      if (!o.isMesh) return;
+      const lm = mapOf(o), tree = ex.trees && treeOf(o), glass = inList(o, ex.glass || []);
+      const ms = Array.isArray(o.material) ? o.material : [o.material];
+      const out = ms.map((m) => {
+        const tr = m.transparent && m.opacity < 0.99 && !tree;
+        const b = new THREE.MeshBasicMaterial({ color: m.color, map: m.map, side: THREE.DoubleSide, transparent: tr, opacity: m.opacity, depthWrite: !tr });
+        if (tree) { b.vertexColors = true; b.color = new THREE.Color(ex.trees.scale, ex.trees.scale, ex.trees.scale); if (m.map && (m.transparent || m.alphaTest > 0)) b.alphaTest = 0.5; }
+        else if (lm && lm.kind === 'colour' && !glass) { b.map = lm.t; b.color = new THREE.Color(lm.k, lm.k, lm.k); }
+        else if (lm && !glass && !tr) { b.lightMap = lm.t; b.lightMapIntensity = lm.k; }
+        if ((glass || tr) && env) { b.envMap = env; b.combine = THREE.AddOperation; b.reflectivity = 0.09 * skyK; if (glass) b.color = new THREE.Color(0.025 * skyK, 0.032 * skyK, 0.038 * skyK); }
+        return prep(b, true);
+      });
+      o.material = Array.isArray(o.material) ? out : out[0];
+      o.userData.group = 'outside';               // not pickable: the parts cut away inside the flat would catch the taps
+    });
+    for (const p of ex.people || []) {           // cut-out people: cards turned to the viewer, feet on the ground (photos, not toned)
+      const t = tl.load(B + p.file); t.colorSpace = THREE.SRGBColorSpace;
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, alphaTest: 0.5, color: new THREE.Color(0.9, 0.9, 0.9) }));
+      s.center.set(0.5, 0); s.position.set(...p.p); s.scale.set(p.w, p.h, 1); g.scene.add(s);
+    }
+    outsideRoot.add(g.scene); outsideRoot.position.set(-W, -Z0, N); scene.add(outsideRoot);
+    if (ctxBox) scene.traverse((o) => {          // the flat's own strip: only inside its box (the shared outside takes over beyond)
+      if (!o.isMesh || o.userData.group !== 'ctx') return;
+      o.material.onBeforeCompile = (sh) => {
+        sh.uniforms.keepMin = { value: ctxBox[0] }; sh.uniforms.keepMax = { value: ctxBox[1] };
+        sh.vertexShader = 'varying vec3 vWp_;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvWp_ = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+        sh.fragmentShader = 'uniform vec3 keepMin, keepMax; varying vec3 vWp_;\n' + sh.fragmentShader.replace('#include <clipping_planes_fragment>',
+          '#include <clipping_planes_fragment>\nif (any(lessThan(vWp_, keepMin - 0.001)) || any(greaterThan(vWp_, keepMax + 0.001))) discard;');
+      };
+      o.material.customProgramCacheKey = () => 'ctxkeep'; o.material.needsUpdate = true;
+    });
+    const sub = document.querySelector('#brand .sub');
+    if (sub) sub.textContent += ' · outside: 3D walk bake ' + new Date(ex.time * 1000).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  });
+}
+manager.onLoad = () => { $('loader').classList.add('done'); if (!window.__studio && !guideSeen) showGuide(true); if (window.__studio) loadOutside(); };
 manager.onError = (url) => { if (url.endsWith('flat_glb.wasm')) return; $('msg').textContent = T.fileErr(url.split('/').pop()); };
 
 // ---------------------------------------------------------------- how to move: a short guide when the flat is ready (website), "?" opens it again
@@ -379,6 +497,7 @@ const notesUI = (() => {
   }
   function setMode(on) {
     if (on && typeof measure !== 'undefined' && measure.active()) measure.off();
+    if (on && window.__swapOff) window.__swapOff();
     st.mode = on; document.body.classList.toggle('noting', on); $('addNote').setAttribute('aria-pressed', on ? 'true' : 'false');
     const h = $('hint');
     if (on) { h.textContent = touch ? 'Tap the spot you want changed' : 'Click the spot you want changed'; h.classList.remove('gone'); }
@@ -564,7 +683,7 @@ const measure = (() => {
   function hint(t) { const h = $('hint'); h.textContent = t; h.classList.remove('gone'); }
   function set(on) {
     st.on = on; btn.setAttribute('aria-pressed', String(on)); clear();
-    if (on) { notesUI.cancel(); hint(L.a); } else $('hint').classList.add('gone');
+    if (on) { notesUI.cancel(); if (window.__swapOff) window.__swapOff(); hint(L.a); } else $('hint').classList.add('gone');
   }
   btn.addEventListener('click', () => set(!st.on));
   function tap(x, y) {
@@ -595,14 +714,133 @@ const measure = (() => {
   }
   return { tap, update, active: () => st.on, off: () => set(false) };
 })();
-const tapAt = (x, y) => (measure.active() ? measure.tap(x, y) : notesUI.tap(x, y));
+// ---------------------------------------------------------------- local studio only: furniture swaps (Jano, 8 Oct)
+// Swap on -> click a piece of furniture: the studio finds which placed object of the furnish it is (the bake's own boxes per
+// object, /api/furnlib), shows the library items of the same kind (thumbnails: furnlib_thumbs.py) and saves the choice as a
+// swap request (flats\<flat>\notes\_swaps.json). The next furnish build applies it (furnswap.py); a bake shows it here.
+const swapUI = (() => {
+  const st = { on: false, F: null, sel: null, helper: null };
+  const btn = $('swapBtn'), panel = $('swapPanel'), ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  if (!window.__studio) return { active: () => false, tap() {} };
+  const api = (p) => p + (p.includes('?') ? '&' : '?') + 'flat=' + encodeURIComponent(window.__studio.flat);
+  async function load() {
+    try { const r = await fetch(api('/api/furnlib')); if (!r.ok) throw new Error(); st.F = await r.json(); btn.hidden = false; }
+    catch (_) { st.F = null; }
+  }
+  const item = (id) => st.F && st.F.library.items.find((x) => x.id === id);
+  const catName = (c) => (st.F && st.F.library.categories[c] || {}).name || c;
+  const slotOf = (id) => st.F && st.F.slots.find((x) => x.id === id);
+  const active = (slot) => st.F && st.F.swaps.find((x) => x.object === slot && x.status === 'active');
+  const label = (slot) => slot.replace(/^[A-Za-z0-9]+_/, '').replace(/([a-z])([A-Z0-9])/g, '$1 $2');
+  const when = (t) => new Date(t * 1000).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const STATE = { saved: () => 'Saved · the next furnish build puts it in (run_flat.ps1 -what furn)',
+    applied: (s) => 'In the model since ' + when(s.applied_time) + ' · shows here after the next bake' + ((s.msg || '').includes('; ') ? ' · ' + s.msg.split('; ').slice(1).join('; ') : ''),
+    baked: () => 'Baked · in this walkthrough', failed: (s) => 'Not applied by the furnish build: ' + (s.msg || '') };
+  function set(on) {
+    st.on = on; btn.setAttribute('aria-pressed', String(on)); document.body.classList.toggle('swapping', on);
+    if (on) {
+      notesUI.cancel(); if (measure.active()) measure.off(); load().then(() => render());
+      const h = $('hint'); h.textContent = touch ? 'Tap a piece of furniture to swap it' : 'Click a piece of furniture to swap it'; h.classList.remove('gone');
+    } else { panel.hidden = true; mark(null); $('hint').classList.add('gone'); }
+  }
+  window.__swapOff = () => { if (st.on) set(false); };
+  btn.addEventListener('click', () => set(!st.on));
+  $('swapClose').addEventListener('click', () => set(false));
+  function mark(sel) {
+    if (st.helper) { scene.remove(st.helper); st.helper = null; }
+    st.sel = sel; if (!sel || !sel.slot) return;
+    const b = new THREE.Box3();
+    for (const o of st.F.objects) if (o.slot === sel.slot) b.union(new THREE.Box3(new THREE.Vector3(o.bb[0], o.bb[1], o.bb[2]), new THREE.Vector3(o.bb[3], o.bb[4], o.bb[5])));
+    if (b.isEmpty()) return;
+    st.helper = new THREE.Box3Helper(b.expandByScalar(0.02), 0xc9a77c);
+    st.helper.material.depthTest = false; st.helper.material.transparent = true; st.helper.renderOrder = 12; scene.add(st.helper);
+  }
+  function tap(x, y) {
+    if (!st.F) return;
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(pickables, false)[0];
+    if (!hit) return;
+    const p = hit.point, g = hit.object.userData.group;
+    let best = null, bv = Infinity;
+    if (['furn', 'plants', 'sheer'].includes(g)) for (const o of st.F.objects) {   // the smallest box round the spot
+      const b = o.bb, e = 0.03;
+      if (p.x < b[0] - e || p.x > b[3] + e || p.y < b[1] - e || p.y > b[4] + e || p.z < b[2] - e || p.z > b[5] + e) continue;
+      const v = (b[3] - b[0] + 0.01) * (b[4] - b[1] + 0.01) * (b[5] - b[2] + 0.01);
+      if (v < bv) { bv = v; best = o; }
+    }
+    mark(best ? { slot: best.slot, name: best.name, pos: [+p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)], group: g } : { slot: null, group: g });
+    render();
+  }
+  async function choose(chosen) {
+    const s = st.sel; if (!s || !s.slot) return;
+    const r = await fetch(api('/api/swaps'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ object: s.slot, chosen, pos: s.pos }) });
+    if (!r.ok) { let m = 'The swap was not saved.'; try { m = (await r.json()).error || m; } catch (_) {} $('swapHead').append(Object.assign(document.createElement('div'), { textContent: m })); return; }
+    await load(); render();
+  }
+  async function undo(id) {
+    await fetch(api('/api/swaps/cancel'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+    await load(); render();
+  }
+  function render() {
+    const head = $('swapHead'), grid = $('swapGrid'); head.textContent = ''; grid.textContent = ''; $('swapUndo').hidden = true;
+    panel.hidden = false;
+    const msg = (t) => { const d = document.createElement('div'); d.className = 'empty'; d.textContent = t; grid.append(d); };
+    if (!st.F) { msg('The Studio helper needs a restart for swaps: close the Studio window and start Studio.cmd again.'); return; }
+    if (!st.F.slots.length) { msg('No furnish build has listed the objects of this flat yet. Run one (run_flat.ps1 -flat ' + window.__studio.flat + ' -what furn), then swaps work here.'); return; }
+    const s = st.sel;
+    if (!s) {
+      head.textContent = touch ? 'Tap a piece of furniture in the flat.' : 'Click a piece of furniture in the flat.';
+      const act = st.F.swaps.filter((x) => x.status === 'active');
+      if (!act.length) { msg('No swaps yet.'); return; }
+      const box = document.createElement('div'); box.className = 'list'; box.append('Swaps in force:');
+      for (const x of act) {
+        const row = document.createElement('div'); const t = document.createElement('span');
+        t.textContent = label(x.object) + ': ' + ((item(x.orig) || {}).name || x.orig) + ' → ' + ((item(x.chosen) || {}).name || x.chosen);
+        t.title = STATE[x.state] ? STATE[x.state](x) : '';
+        const u = document.createElement('button'); u.type = 'button'; u.textContent = 'Undo'; u.addEventListener('click', () => undo(x.id));
+        row.append(t, u); box.append(row);
+      }
+      grid.append(box); return;
+    }
+    if (!s.slot) { head.textContent = ['shell', 'ctx', 'relief', 'win'].includes(s.group) ? 'That is part of the building, not furniture.' : 'That object is not one the furnish places.'; return; }
+    const sl = slotOf(s.slot), sw = active(s.slot);
+    const b = document.createElement('b'); b.textContent = label(s.slot); head.append(b);
+    if (!sl || !sl.item) { head.append(document.createTextNode(s.slot + ' · made for this flat, not in the swap library.')); return; }
+    const showing = sw && sw.state === 'baked' ? sw.chosen : sw ? sw.current : sl.orig;
+    head.append(document.createTextNode(catName(sl.cat) + ' · ' + s.slot + ' · in this walkthrough: ' + ((item(showing) || {}).name || showing)));
+    if (sw) {
+      const d = document.createElement('div'); d.className = 'state';
+      d.textContent = 'Swap to ' + ((item(sw.chosen) || {}).name || sw.chosen) + ': ' + (STATE[sw.state] ? STATE[sw.state](sw) : sw.state);
+      head.append(d); $('swapUndo').hidden = false; $('swapUndo').onclick = () => undo(sw.id);
+    }
+    const alts = st.F.library.items.filter((x) => x.cat === sl.cat);
+    if (alts.length < 2) { msg('No other ' + catName(sl.cat).toLowerCase() + ' in the library yet.'); return; }
+    const want = sw ? sw.chosen : sl.orig;
+    for (const it of alts) {
+      const c = document.createElement('button'); c.type = 'button';
+      const im = document.createElement('img'); im.src = st.F.thumbs + it.id + '.jpg'; im.alt = ''; im.loading = 'lazy';
+      const n = document.createElement('span'); n.textContent = it.name;
+      const sm = document.createElement('small'); sm.textContent = it.id === sl.orig ? 'The flat’s own' : it.id === want ? 'Chosen' : '';
+      c.append(im, n, sm);
+      if (it.id === showing) c.setAttribute('aria-current', 'true');
+      c.setAttribute('aria-pressed', it.id === want ? 'true' : 'false');
+      c.title = it.id === want ? 'Chosen' : 'Swap to ' + it.name;
+      c.addEventListener('click', () => { if (it.id !== want) choose(it.id); });
+      grid.append(c);
+    }
+  }
+  load();
+  return { active: () => st.on, tap };
+})();
+const tapAt = (x, y) => (measure.active() ? measure.tap(x, y) : swapUI.active() ? swapUI.tap(x, y) : notesUI.tap(x, y));
 
 // ---------------------------------------------------------------- input: keys + mouse (pointer lock or drag) + touch (stick + look)
 const keys = new Set();
 const typing = (e) => e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT');
 addEventListener('keydown', (e) => {
   if (typing(e)) return;
-  if (e.code === 'Escape') { notesUI.cancel(); if (measure.active()) measure.off(); if (!$('guide').hidden) showGuide(false); }
+  if (e.code === 'Escape') { notesUI.cancel(); if (measure.active()) measure.off(); if (window.__swapOff) window.__swapOff(); if (!$('guide').hidden) showGuide(false); }
   if (e.code === 'Space') {                       // jump (and keep Space from pressing a focused button or scrolling)
     e.preventDefault(); if (document.activeElement && document.activeElement.tagName === 'BUTTON') document.activeElement.blur();
     if (!e.repeat && pose.up === 0 && pose.vy === 0) pose.vy = 3.1;
