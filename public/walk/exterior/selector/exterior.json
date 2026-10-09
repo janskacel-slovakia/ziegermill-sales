@@ -1,0 +1,45 @@
+{
+ "about": "Baked light of the master model for the studio's Exteri\u00e9r tab and the walkthroughs (bake_exterior.py). Each LM_ mesh's second UV set (uv1) reads its map: linear = sRGB-decoded texel x scale; kind light: colour = base colour x light; kind colour: the colour itself. Trees: light per vertex (COLOR_0 x trees.scale) x their texture. Glass: no map, the sky's reflection. Sky: equirectangular (three.js), x scale. People: cards facing the viewer, feet at p (page coordinates), h tall, w wide.",
+ "source": "flats\\_export\\selector\\building.glb",
+ "source_time": 1791487468.7597716,
+ "time": 1791527748.754675,
+ "target": "selector",
+ "quality": "final",
+ "spp": 256,
+ "day": null,
+ "hour": null,
+ "sun": null,
+ "maps": {
+  "LM_building": {
+   "file": "lm_building.jpg",
+   "scale": 1.07536,
+   "size": 2048,
+   "kind": "light"
+  },
+  "LM_site": {
+   "file": "lm_site.jpg",
+   "scale": 1.1316,
+   "size": 1024,
+   "kind": "light"
+  },
+  "LM_ground": {
+   "file": "lm_ground.jpg",
+   "scale": 1.00195,
+   "size": 1024,
+   "kind": "light"
+  }
+ },
+ "frame": [
+  [
+   -33.198,
+   3.09,
+   -6.629
+  ],
+  [
+   -3.375,
+   25.33,
+   9.741
+  ]
+ ],
+ "dry": null
+}
