@@ -145,6 +145,29 @@ body.noting #view canvas { cursor: crosshair; }
 #swapGrid button .badge.ready { background: rgba(124, 194, 140, 0.3); color: var(--ink); }
 #swapGrid .more { grid-column: 1 / -1; justify-self: center; font: 500 12px/1 var(--ui); padding: 7px 14px; border-radius: 8px; }
 body.swapping #view canvas { cursor: pointer; }
+/* the gallery's two views (Jano, 10 Oct: "switch between small icons and scroll big pictures one at a time"): Grid, or Large -
+   one picture as big as the panel allows, the wheel / arrow keys / buttons for the next one, "Swap to this" to choose it */
+#swapPanel.large { width: min(680px, calc(100vw - 32px)); height: calc(100vh - 172px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+#swapPanel.large #swapGrid { display: flex; flex-direction: column; overflow: hidden; }
+.swapview { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.panel .swapview button { padding: 6px 10px; font-size: 12px; border-radius: 0; }
+.panel .swapview button[aria-pressed="true"] { background: var(--oak); color: #1d1913; }
+#swapGrid .big { grid-column: 1 / -1; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; outline: none; }
+#swapGrid .big .pic { flex: 1; min-height: 140px; background: #d9d6cf; border-radius: 10px; overflow: hidden; display: grid; place-items: center; }
+#swapGrid .big .pic img { min-height: 0; }
+#swapGrid .big .pic img { width: 100%; height: 100%; object-fit: contain; display: block; }
+#swapGrid .big .cap { display: grid; gap: 3px; font-size: 13px; line-height: 1.35; }
+#swapGrid .big .cap b { font-size: 15px; font-weight: 600; }
+#swapGrid .big .cap small { color: var(--ink-dim); font-size: 12px; }
+#swapGrid .big .cap .badge { justify-self: start; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.35); color: var(--ink-dim); }
+#swapGrid .big .cap .badge.paid { background: rgba(201, 167, 124, 0.3); color: var(--ink); }
+#swapGrid .big .cap .badge.ready { background: rgba(124, 194, 140, 0.3); color: var(--ink); }
+#swapGrid .big .cap { justify-items: start; }
+#swapGrid .big .nav { display: flex; gap: 6px; align-items: center; }
+#swapGrid .big .nav button { display: inline-block; padding: 8px 13px; text-align: center; font: 500 13px/1 var(--ui); border-radius: 8px; background: rgba(0, 0, 0, 0.22); border: 0; }
+#swapGrid .big .nav .count { font-size: 12px; color: var(--ink-dim); font-variant-numeric: tabular-nums; min-width: 70px; text-align: center; }
+#swapGrid .big .nav .go { margin-left: auto; background: var(--oak); color: #1d1913; font-weight: 600; }
+#swapGrid .big .nav .go:disabled { background: rgba(0, 0, 0, 0.22); color: var(--ink-dim); cursor: default; }
 @media (max-width: 560px) { #brand .name { font-size: 19px; } #level .val { font-size: 17px; } #places button { padding: 9px 10px; font-size: 12.5px; flex: none; }
   #brand { max-width: calc(100vw - 172px); box-sizing: border-box; }                       /* clear of the floor-level chip */
   #places { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; touch-action: pan-x; scrollbar-width: none; }   /* one row: clear of the walk ring */
@@ -176,7 +199,7 @@ body.swapping #view canvas { cursor: pointer; }
   <div class="row"><span class="grow" id="noteMsg"></span><button type="button" id="noteCancel">Cancel</button><button type="button" id="noteSave" class="primary">Save note</button></div>
 </div>
 <div id="notesList" class="panel" hidden><div class="row"><h2 class="grow" style="font-size:15px;color:var(--ink)">Notes</h2><button type="button" id="hideDone" aria-pressed="true">Hide done</button><button type="button" id="closeNotes">Close</button></div><ol id="notesOl"></ol></div>
-<div id="swapPanel" class="panel" hidden role="dialog" aria-labelledby="swapTitle"><div class="row"><h2 class="grow" id="swapTitle" style="color:var(--ink)">Swap furniture</h2><button type="button" id="swapUndo" hidden>Undo swap</button><button type="button" id="swapClose">Close</button></div><div id="swapHead"></div><div id="swapGrid"></div></div>
+<div id="swapPanel" class="panel" hidden role="dialog" aria-labelledby="swapTitle"><div class="row"><h2 class="grow" id="swapTitle" style="color:var(--ink)">Swap furniture</h2><span class="swapview" role="group" aria-label="Pictures"><button type="button" id="swapViewGrid" aria-pressed="true" title="Small pictures, all at once">Grid</button><button type="button" id="swapViewLarge" aria-pressed="false" title="One large picture at a time: the wheel or the arrow keys for the next">Large</button></span><button type="button" id="swapUndo" hidden>Undo swap</button><button type="button" id="swapClose">Close</button></div><div id="swapHead"></div><div id="swapGrid"></div></div>
 <div id="loader"><div class="box"><div class="name">Byt 02</div><div class="bar"><i id="bar"></i></div><div class="msg" id="msg">Preparing the flat…</div></div></div>
 
 <script type="importmap">
@@ -745,10 +768,18 @@ const measure = (() => {
 // Jano, 9 Oct: also the catalogues - Poly Haven and BlendKit (free and paid), pictures only (/api/furncat, furncat.py).
 // A picked free model downloads then; a paid one is kept as wanted until there is a BlendKit plan.
 const swapUI = (() => {
-  const st = { on: false, F: null, sel: null, helper: null, src: 'lib', q: '', res: null, key: '', busy: false };
+  const st = { on: false, F: null, sel: null, helper: null, src: 'lib', q: '', res: null, key: '', busy: false, view: 'grid', at: 0, atKey: '' };
   const SRC = [['lib', 'Library'], ['ph', 'Poly Haven'], ['bkf', 'BlendKit free'], ['bkp', 'BlendKit paid']];
   const btn = $('swapBtn'), panel = $('swapPanel'), ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
   if (!window.__studio) return { active: () => false, tap() {} };
+  try { st.view = localStorage.getItem('swap.view') === 'large' ? 'large' : 'grid'; } catch (_) {}
+  function setView(v) {
+    st.view = v; try { localStorage.setItem('swap.view', v); } catch (_) {}
+    $('swapViewGrid').setAttribute('aria-pressed', String(v === 'grid')); $('swapViewLarge').setAttribute('aria-pressed', String(v === 'large'));
+    panel.classList.toggle('large', v === 'large'); if (st.on) render();
+  }
+  $('swapViewGrid').addEventListener('click', () => setView('grid')); $('swapViewLarge').addEventListener('click', () => setView('large'));
+  setView(st.view);
   const api = (p) => p + (p.includes('?') ? '&' : '?') + 'flat=' + encodeURIComponent(window.__studio.flat);
   async function load() {
     try { const r = await fetch(api('/api/furnlib')); if (!r.ok) throw new Error(); st.F = await r.json(); btn.hidden = false; }
@@ -861,19 +892,69 @@ const swapUI = (() => {
     if (st.src !== 'lib') { catalogue(sl, want, head, grid, msg); return; }
     const alts = st.F.library.items.filter((x) => x.cat === sl.cat && (x.swap_to !== false || x.id === sl.orig));
     if (alts.length < 2) { msg('No other ' + catName(sl.cat).toLowerCase() + ' in the library yet: look in Poly Haven or BlendKit above.'); return; }
-    for (const it of alts) {
-      const c = document.createElement('button'); c.type = 'button';
-      const im = document.createElement('img'); im.src = it.thumb_url || st.F.thumbs + it.id + '.jpg'; im.alt = ''; im.loading = 'lazy';
-      im.onerror = () => { im.removeAttribute('src'); };        // made-to-measure pieces have no picture: an empty tile
-      const n = document.createElement('span'); n.textContent = it.name;
-      const sm = document.createElement('small'); sm.textContent = it.id === sl.orig ? 'The flat’s own' : it.id === want ? 'Chosen' : '';
-      c.append(im, n, sm);
-      if (it.id === showing) c.setAttribute('aria-current', 'true');
-      c.setAttribute('aria-pressed', it.id === want ? 'true' : 'false');
-      c.title = it.id === want ? 'Chosen' : 'Swap to ' + it.name;
-      c.addEventListener('click', () => { if (it.id !== want) choose(it.id); });
-      grid.append(c);
+    gallery(grid, alts.map((it) => ({ img: it.thumb_url || st.F.thumbs + it.id + '.jpg', name: it.name,
+      sub: it.id === sl.orig ? 'The flat’s own' : it.id === want ? 'Chosen' : '', current: it.id === showing, chosen: it.id === want,
+      title: it.id === want ? 'Chosen' : 'Swap to ' + it.name, pick: () => choose(it.id) })), null, 'lib|' + sl.cat + '|' + sl.id);
+  }
+  // the pictures (Jano, 10 Oct: "switch between small icons and scroll big pictures one at a time so I can see it better"):
+  // Grid - small ones, a click swaps; Large - one at a time as big as the panel allows, the wheel / arrow keys / ‹ › for
+  // the next one, "Swap to this" chooses it. more: the catalogue's next page {has, busy, load}
+  function gallery(grid, cards, more, key) {
+    if (st.atKey !== key) { st.atKey = key; st.at = Math.max(0, cards.findIndex((c) => c.chosen || c.current)); }
+    if (st.view === 'large' && cards.length) return big(grid, cards, more);
+    for (const c of cards) {
+      const b = document.createElement('button'); b.type = 'button';
+      const im = document.createElement('img'); im.src = c.img || ''; im.alt = ''; im.loading = 'lazy'; im.referrerPolicy = 'no-referrer';
+      im.onerror = () => { im.removeAttribute('src'); };        // (made-to-measure pieces have no picture: an empty tile)
+      const n = document.createElement('span'); n.textContent = c.name;
+      const sm = document.createElement('small'); sm.textContent = c.sub || '';
+      b.append(im, n, sm); if (c.badge) b.append(c.badge());
+      if (c.current) b.setAttribute('aria-current', 'true');
+      b.setAttribute('aria-pressed', c.chosen ? 'true' : 'false'); b.title = c.title;
+      b.addEventListener('click', () => { if (!c.chosen) c.pick(); });
+      grid.append(b);
     }
+    if (more && more.has) {
+      const m = document.createElement('button'); m.type = 'button'; m.className = 'more'; m.textContent = more.busy ? 'Loading…' : 'More';
+      m.addEventListener('click', more.load); grid.append(m);
+    }
+  }
+  function big(grid, cards, more) {
+    st.at = Math.min(st.at, cards.length - 1); const c = cards[st.at];
+    const box = document.createElement('div'); box.className = 'big'; box.tabIndex = 0;
+    box.setAttribute('role', 'group'); box.setAttribute('aria-roledescription', 'one picture at a time'); box.setAttribute('aria-label', c.name);
+    const pic = document.createElement('div'); pic.className = 'pic';
+    const im = document.createElement('img'); im.src = c.big || c.img || ''; im.alt = c.name; im.referrerPolicy = 'no-referrer';
+    im.onerror = () => { if (c.img && im.getAttribute('src') !== c.img) im.src = c.img; else im.removeAttribute('src'); };
+    pic.append(im);
+    const cap = document.createElement('div'); cap.className = 'cap';
+    const nm = document.createElement('b'); nm.textContent = c.name; cap.append(nm);
+    if (c.sub || c.by) { const sm = document.createElement('small'); sm.textContent = [c.sub, c.by].filter(Boolean).join(' · '); cap.append(sm); }
+    if (c.badge) cap.append(c.badge());
+    const nav = document.createElement('div'); nav.className = 'nav';
+    const prev = document.createElement('button'); prev.type = 'button'; prev.textContent = '‹'; prev.setAttribute('aria-label', 'Previous'); prev.disabled = st.at === 0;
+    const count = document.createElement('span'); count.className = 'count'; count.textContent = (st.at + 1) + ' / ' + cards.length + (more && more.has ? '+' : '');
+    const next = document.createElement('button'); next.type = 'button'; next.textContent = '›'; next.setAttribute('aria-label', 'Next');
+    next.disabled = st.at >= cards.length - 1 && !(more && more.has);
+    const go = document.createElement('button'); go.type = 'button'; go.className = 'go';
+    go.textContent = c.chosen ? 'Chosen' : 'Swap to this'; go.disabled = !!c.chosen; go.title = c.title;
+    go.addEventListener('click', () => { if (!c.chosen) c.pick(); });
+    nav.append(prev, count, next, go);
+    box.append(pic, cap, nav); grid.append(box);
+    const step = (d) => {
+      const i = st.at + d;
+      if (i < 0) return;
+      if (i >= cards.length) { if (more && more.has && !more.busy) { st.at = i; more.load(); } return; }
+      st.at = i; render(); const nb = $('swapGrid').querySelector('.big'); if (nb) nb.focus({ preventScroll: true });
+    };
+    prev.addEventListener('click', () => step(-1)); next.addEventListener('click', () => step(1));
+    let wt = 0;
+    box.addEventListener('wheel', (e) => { e.preventDefault(); const t = performance.now(); if (t - wt < 260 || !e.deltaY) return; wt = t; step(e.deltaY > 0 ? 1 : -1); }, { passive: false });
+    box.addEventListener('keydown', (e) => {
+      if (['ArrowRight', 'ArrowDown', 'PageDown'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); step(1); }
+      else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); step(-1); }
+    });
+    for (const k of [st.at + 1, st.at + 2]) if (cards[k] && (cards[k].big || cards[k].img)) new Image().src = cards[k].big || cards[k].img;   // the next ones ready
   }
   // a catalogue: one page at a time from /api/furncat (Poly Haven / BlendKit free / BlendKit paid), with a search
   async function catalogue(sl, want, head, grid, msg) {
@@ -904,26 +985,15 @@ const swapUI = (() => {
     grid.append(n);
     if (!R.items.length) { msg('Nothing found.'); return; }
     const picked = (st.F.catalog || {}).picked || {};
-    for (const it of R.items) {
+    gallery(grid, R.items.map((it) => {
       const lid = (it.src === 'ph' ? 'phx_' : 'bkx_') + it.id.replace(/[^A-Za-z0-9]/g, '').slice(0, 12);
       const known = picked[lid] || {}, state = it.state || known.status;
-      const c = document.createElement('button'); c.type = 'button';
-      const im = document.createElement('img'); im.src = it.thumb; im.alt = ''; im.loading = 'lazy'; im.referrerPolicy = 'no-referrer';
-      const nm = document.createElement('span'); nm.textContent = it.name;
-      const sm = document.createElement('small'); sm.textContent = dims(it.dims);
-      const bd = document.createElement('span');
-      bd.className = 'badge' + (state === 'ready' ? ' ready' : it.free ? '' : ' paid');
-      bd.textContent = { ready: 'downloaded', downloading: 'downloading…', wanted: 'wanted', failed: 'download failed' }[state] || (it.free ? 'free' : 'paid');
-      c.append(im, nm, sm, bd);
-      c.setAttribute('aria-pressed', lid === want ? 'true' : 'false');
-      c.title = (lid === want ? 'Chosen · ' : 'Swap to ') + it.name + (it.author ? ' · by ' + it.author : '') + (it.free ? '' : ' · paid BlendKit model');
-      c.addEventListener('click', () => { if (lid !== want) choose('', { src: it.src, id: it.id, name: it.name, thumb: it.thumb, free: it.free, dims: it.dims, page: it.page }); });
-      grid.append(c);
-    }
-    if (R.more) {
-      const m = document.createElement('button'); m.type = 'button'; m.className = 'more'; m.textContent = st.busy ? 'Loading…' : 'More';
-      m.addEventListener('click', page); grid.append(m);
-    }
+      return { img: it.thumb, big: it.big, name: it.name, sub: dims(it.dims), by: it.author ? 'by ' + it.author : '', chosen: lid === want,
+        title: (lid === want ? 'Chosen · ' : 'Swap to ') + it.name + (it.author ? ' · by ' + it.author : '') + (it.free ? '' : ' · paid BlendKit model'),
+        badge: () => { const bd = document.createElement('span'); bd.className = 'badge' + (state === 'ready' ? ' ready' : it.free ? '' : ' paid');
+          bd.textContent = { ready: 'downloaded', downloading: 'downloading…', wanted: 'wanted', failed: 'download failed' }[state] || (it.free ? 'free' : 'paid'); return bd; },
+        pick: () => choose('', { src: it.src, id: it.id, name: it.name, thumb: it.thumb, free: it.free, dims: it.dims, page: it.page }) };
+    }), { has: R.more, busy: st.busy, load: page }, key);
   }
   load();
   return { active: () => st.on, tap };
