@@ -95,6 +95,7 @@ body.noting #view canvas { cursor: crosshair; }
 #notesList .edit label { display: flex; gap: 7px; align-items: center; font-size: 12.5px; color: var(--ink-dim); }
 #notesList .edit input[type=checkbox] { accent-color: var(--oak); width: 15px; height: 15px; margin: 0; }
 #notesList .acts { display: flex; gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
+#notesList .acts button.armed { background: #b8443a; color: #fff; white-space: nowrap; }
 #notesList .acts button { padding: 7px 9px; font-size: 12.5px; }
 #notesList .st { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
 #notesList .reply { font-size: 13px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; border-left: 2px solid var(--oak); padding: 2px 0 2px 8px; }
@@ -102,6 +103,31 @@ body.noting #view canvas { cursor: crosshair; }
 #help { position: fixed; right: 16px; top: calc(78px + env(safe-area-inset-top, 0px)); width: 40px; height: 40px; padding: 0; font: 600 17px/1 var(--ui); color: var(--ink); cursor: pointer; }
 #help:hover, #help:focus-visible { background: var(--glass-strong); outline: none; }
 /* measure (Jano, 6 Oct): two taps, a line and its length */
+#xray { position: fixed; right: 16px; top: calc(176px + env(safe-area-inset-top, 0px)); padding: 10px 12px; display: grid; gap: 4px; font: 500 13px/1.3 var(--ui); max-width: 210px; }
+#xray[hidden] { display: none; }
+#xray .trades { display: grid; gap: 4px; }
+#xray label { display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink-dim); }
+#xray label[hidden] { display: none; }
+#xray label i { width: 18px; height: 5px; border-radius: 3px; display: inline-block; }
+#xray input { accent-color: var(--oak); margin: 0; }
+#xray label.all { color: var(--ink); padding-bottom: 4px; border-bottom: 1px solid var(--line); margin-bottom: 2px; }
+#xray > button { font: 500 12.5px/1 var(--ui); margin-top: 4px; padding: 7px 10px; border-radius: 7px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.18); color: var(--ink); cursor: pointer; }
+#xray > button[aria-pressed="true"] { background: var(--oak); border-color: var(--oak); color: #1d1913; }
+#xray > button[hidden] { display: none; }
+#xray.editing { max-width: 280px; }
+#xray .swx { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 6px; }
+#xray .swx[hidden], #xray .row[hidden] { display: none; }
+#xray .swxhead { color: var(--ink); font-weight: 600; }
+#xray .swx .row { display: flex; flex-wrap: wrap; gap: 4px; }
+#xray .swx button { font: 500 12px/1 var(--ui); padding: 6px 9px; border-radius: 7px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.18); color: var(--ink); cursor: pointer; }
+#xray .swx button.primary { background: var(--oak); border-color: var(--oak); color: #1d1913; }
+#xray .swx button[aria-pressed="true"] { outline: 2px solid var(--oak); }
+#xray .swx button:disabled { opacity: 0.45; cursor: default; }
+#xray .swxg { display: grid; gap: 3px; padding: 5px 6px; border-radius: 7px; border: 1px solid var(--line); cursor: pointer; }
+#xray .swxg.on { border-color: var(--oak); background: rgba(201, 167, 124, 0.12); }
+#xray .swxg input { font: 500 12px/1.2 var(--ui); background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); padding: 2px 0; width: 100%; }
+#xray .swxg small, #xray .swxmsg, #xray .swxcab { color: var(--ink-dim); font-size: 11px; }
+#xray .note { margin-top: 4px; font-size: 11px; color: var(--ink-dim); }
 #measure { position: fixed; right: 16px; top: calc(126px + env(safe-area-inset-top, 0px)); width: 40px; height: 40px; padding: 0; color: var(--ink); cursor: pointer; display: grid; place-items: center; }
 #measure svg { width: 22px; height: 22px; }
 #measure:hover, #measure:focus-visible { background: var(--glass-strong); outline: none; }
@@ -195,7 +221,8 @@ body.swapping #view canvas { cursor: pointer; }
   <ul id="guideList"></ul>
   <div class="row"><button type="button" id="guideOk" class="primary">Got it</button></div>
 </div>
-<div id="tools" class="chip" hidden><button type="button" id="addNote" aria-pressed="false">Add note</button><button type="button" id="showNotes">Notes</button><button type="button" id="swapBtn" hidden aria-pressed="false" title="Click a piece of furniture and pick another one from the library">Swap</button><button type="button" id="saveView" hidden title="Keep this view for a full-quality preview render (Bake tab)">Save view</button></div>
+<div id="tools" class="chip" hidden><button type="button" id="addNote" aria-pressed="false">Add note</button><button type="button" id="showNotes">Notes</button><button type="button" id="swapBtn" hidden aria-pressed="false" title="Click a piece of furniture and pick another one from the library">Swap</button><button type="button" id="saveView" hidden title="Keep this view for a full-quality preview render (Bake tab)">Save view</button><button type="button" id="xrayBtn" hidden aria-pressed="false" aria-controls="xray" title="X-ray: the building services through the walls (key I)">Services</button></div>
+<div id="xray" class="chip" hidden role="group" aria-label="Services"><label class="all"><input type="checkbox" id="xrayAll" checked> All</label><div class="trades" id="xrayTrades"></div><label id="xrayEqRow" hidden><input type="checkbox" id="xrayEq" checked> Fixtures and equipment</label><label id="xrayRisRow" hidden title="The building's risers and the collectors in the ground under 1.NP (tender plans, sizes from the 2023 permit), a darker shade"><input type="checkbox" id="xrayRis" checked> Building risers (darker)</label><label id="xrayLabRow" hidden><input type="checkbox" id="xrayLab" checked> Labels (switches; other fixtures within 4 m)</label><button type="button" id="swxBtn" hidden aria-pressed="false" title="Which switch controls which lights: click a switch, then its lights">Edit switching</button><div class="swx" id="swx" hidden><div id="swxHead" class="swxhead">Click a switch, then the lights it controls.</div><div id="swxGroups"></div><div class="row" id="swxTools" hidden><button type="button" id="swxNew" title="Another group of lights on this switch (a double switch)">+ Group</button><button type="button" id="swxLink" aria-pressed="false" title="Then click another switch: both control this group (two-way)">+ Switch</button><button type="button" id="swxUnlink" title="This switch no longer controls this group">Remove</button></div><div class="row"><button type="button" id="swxSave" class="primary" disabled>Save</button><button type="button" id="swxCancel">Done</button></div><div id="swxMsg" class="swxmsg"></div><div id="swxCables" class="swxcab"></div></div><div class="note">Rozpočtový pilot, nie projekt. Trasy sú schematické.</div></div>
 <button id="measure" class="chip" type="button" aria-pressed="false" aria-label="Measure" title="Measure: tap two points"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 16.5 16.5 3 21 7.5 7.5 21z"/><path d="M7 12.5l1.8 1.8M9.8 9.7l2.6 2.6M12.6 6.9l1.8 1.8M15.4 4.1"/></svg></button>
 <div id="mLabel" hidden></div>
 <div id="notePanel" class="panel" hidden role="dialog" aria-labelledby="noteTitle">
@@ -568,7 +595,7 @@ const notesUI = (() => {
       if (hit) { const p = st.pins.find((q) => q.sprite === hit.object); openList(p.id); }
       return;
     }
-    const hit = ray.intersectObjects(pickables, false)[0];
+    const hit = ray.intersectObjects(XR.on ? pickables.concat(XR.pick()) : pickables, false)[0];   // in x-ray: on a route too
     if (!hit) return;
     const n = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : new THREE.Vector3();
     const pos = hit.point.clone().addScaledVector(n, 0.02);
@@ -682,7 +709,9 @@ const notesUI = (() => {
         const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Delete';
         let armed = false;
         del.addEventListener('click', async () => {
-          if (!armed) { armed = true; del.textContent = 'Confirm delete'; setTimeout(() => { armed = false; del.textContent = 'Delete'; }, 3000); return; }
+          // the confirmation stays where Delete was (Jano, 11 Oct: "Confirm delete" was too long and jumped to the next line)
+          if (!armed) { armed = true; del.style.width = del.offsetWidth + 'px'; del.textContent = 'Sure?'; del.classList.add('armed'); del.title = 'Click again to delete this note';
+            setTimeout(() => { armed = false; del.textContent = 'Delete'; del.classList.remove('armed'); del.style.width = ''; del.title = ''; }, 3000); return; }
           try { await st.db.doc('notes/' + d.id).delete(); } catch (_) { del.textContent = 'Not deleted'; }
         });
         acts.append(del);
@@ -1223,7 +1252,7 @@ const tvUI = (() => {
   })();
   return planes;
 })();
-const tapAt = (x, y) => (measure.active() ? measure.tap(x, y) : swapUI.active() ? swapUI.tap(x, y)
+const tapAt = (x, y) => (window.__switchTap && window.__switchTap(x, y)) || (measure.active() ? measure.tap(x, y) : swapUI.active() ? swapUI.tap(x, y)
   : (!document.body.classList.contains('noting') && doorsUI.tap(x, y)) || notesUI.tap(x, y));
 
 // ---------------------------------------------------------------- input: keys + mouse (pointer lock or drag) + touch (stick + look)
@@ -1433,6 +1462,261 @@ requestAnimationFrame(frame);
 
 // ---------------------------------------------------------------- local studio only: keep this view for a preview render
 // (Bake tab -> Preview renders renders it in full quality from the current model, before a bake)
+// ---------------------------------------------------------------- x-ray: the building services (Jano, 11 Oct: "can you add the x-ray
+// view with services to the Studio 3D walk?"). "Services" (or I) ghosts the flat and draws the services on top in their
+// trade colours, with a filter per trade. Studio only. Two sources, each optional:
+//   - the flat's own routes: flats\_mep_pilot\<flat>_services.glb (mep_model.py, make_glb.py - only A32 so far), as services.glb;
+//   - the building's risers (Jano: "so I can see them going down the whole building"): _mep_pilot\building_risers.glb
+//     (make_risers.py, from the tender plans' TZB layers), in model metres - placed by the flat's frame (/api/outside).
+// While it is on, only the flat and the services are shown (Jano: "lot of stuff is distracting. I see people on the
+// streets, windows from other flats"): the shared outside and the flat's own outside strip (ctx) are hidden.
+const XR = { on: false, group: null, hidden: new Set(), eq: true, ris: true, pick: () => [] };
+if (window.__studio) {
+  const XT = {   // as mep_model.TRADES
+    cold_water: ['Cold water', '#1f6fff'], hot_water: ['Hot water', '#e02424'], waste: ['Waste', '#8b5a2b'], heating: ['Heating', '#ff8c00'],
+    ventilation: ['Ventilation', '#1fa84a'], power: ['Power: sockets', '#f2c200'], power_light: ['Power: lighting (dashed)', '#fff07a'],
+    low_voltage: ['Low voltage', '#8a2be2'], cooling: ['Cooling (AC)', '#00b8d4'] };
+  const btn = $('xrayBtn'), root = new THREE.Group(), seen = new Set(); root.visible = false; scene.add(root); XR.group = root;
+  const ghost = (on) => scene.traverse((o) => {
+    if (o === outsideRoot) return;
+    if (o.isMesh && o.userData.group === 'ctx') { if (on) { o.userData.xrVis = o.visible; o.visible = false; } else if ('xrVis' in o.userData) o.visible = o.userData.xrVis; return; }
+    if (!o.isMesh || o === sky || o.userData.xrSkip) return;
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+      if (!m) continue;
+      if (!m.userData.xr) m.userData.xr = { t: m.transparent, o: m.opacity, d: m.depthWrite };
+      const k = o.userData.group === 'shell' ? 0.22 : 0.10;
+      if (on) { m.transparent = true; m.opacity = Math.min(m.userData.xr.o, k); m.depthWrite = false; }
+      else { m.transparent = m.userData.xr.t; m.opacity = m.userData.xr.o; m.depthWrite = m.userData.xr.d; }
+      m.needsUpdate = true;
+    }
+  });
+  const apply = () => {
+    const cbs = [...document.querySelectorAll('#xrayTrades input, #xrayEq, #xrayRis')].filter((c) => !c.closest('[hidden]'));
+    const n = cbs.filter((c) => c.checked).length;
+    const all = $('xrayAll'); all.checked = n === cbs.length; all.indeterminate = n > 0 && n < cbs.length;   // (Jano, 11 Oct: select / deselect all)
+    root.visible = XR.on; outsideRoot.visible = !XR.on;
+    root.traverse((o) => { if (o.isMesh && o.userData.trade !== undefined) o.visible = !XR.hidden.has(o.userData.trade) && (XR.eq || !o.userData.equipment) && (XR.ris || !o.userData.riser); });
+    if (XR.showLabels) XR.showLabels();
+  };
+  const trades = () => {                                     // one checkbox per trade there is, in the usual order
+    const box = $('xrayTrades'); box.textContent = '';
+    for (const [k, [lab, col]] of Object.entries(XT)) {
+      if (!seen.has(k)) continue;
+      const l = document.createElement('label'), cb = document.createElement('input'), sw = document.createElement('i');
+      cb.type = 'checkbox'; cb.checked = !XR.hidden.has(k); cb.dataset.trade = k; sw.style.background = col;
+      cb.addEventListener('change', () => { if (cb.checked) XR.hidden.delete(k); else XR.hidden.add(k); apply(); });
+      l.append(cb, sw, lab); box.append(l);
+    }
+    btn.hidden = false; apply();
+  };
+  const take = (g, riser) => {
+    g.scene.traverse((o) => {
+      if (!o.isMesh) return;
+      let n = o, m = null;                                   // the node named mep_<trade> (routes, risers) or mepeq_<trade> (fixtures)
+      while (n && !(m = (n.name || '').match(/^mep(eq)?_([a-z_]+?)(?:[._]\d+)?$/))) n = n.parent;
+      const eq = !!(m && m[1]), trade = m ? m[2] : '';
+      o.userData = { trade, equipment: eq, riser, xrSkip: true,
+                     group: (riser ? 'riser ' : 'services ') + trade.replace(/_/g, ' ') + (eq ? ' (fixture)' : '') }; seen.add(trade);
+      const c = new THREE.Color((XT[trade] || [0, '#ffffff'])[1]);
+      if (riser) { const h = {}; c.getHSL(h, THREE.SRGBColorSpace); c.setHSL(h.h, h.s * 0.85, h.l * 0.66, THREE.SRGBColorSpace); }   // the building's risers: a darker shade of the trade (Jano, 11 Oct)
+      o.material = new THREE.MeshBasicMaterial({ color: c, transparent: eq, opacity: eq ? 0.45 : 1, depthWrite: !eq });
+      o.renderOrder = eq ? 21 : 20;
+    });
+  };
+  let svcScene = null;
+  const loadServices = (t) => new GLTFLoader().load('services.glb' + (t ? '?t=' + t : ''), (g) => {
+    if (svcScene) root.remove(svcScene);
+    take(g, false); svcScene = g.scene; root.add(g.scene); $('xrayEqRow').hidden = false; trades();
+  }, undefined, () => {});                                   // no routes for this flat
+  loadServices(Date.now());                                // (never an old copy from the cache)
+  // ---- switch labels and the switching editor (Jano, 11 Oct: "build switching mode in 3D walk ... put the switch numbers
+  // and description to the switches"): services.json (make_glb.py) has the switches and lights (page u, h, v), the
+  // switching groups and the cable schedule. Labels: "S3" and what it switches. Editing: click a switch, then the lights
+  // (each light is in one group); "+ Group" makes a double switch, "+ Switch" then a second switch makes it two-way.
+  // Save writes _mep_pilot\<flat>_switching.json and rebuilds the services (cables, cores, the schedule).
+  const SW = { data: null, draft: null, sel: null, act: 0, link: false, edit: false, dirty: false,
+               labels: new THREE.Group(), marks: new THREE.Group(), lines: null };
+  SW.marks.visible = false; root.add(SW.labels, SW.marks);
+  const eqById = (id) => SW.data && SW.data.eq.find((e) => e.id === id);
+  const groupsOf = (sid) => SW.draft.groups.filter((g) => g.switches.includes(sid));
+  function labelTex(id, text, sub, col) {                    // number (and the device / kind), then the text
+    const c = document.createElement('canvas'), x = c.getContext('2d'), W = 512, H = 128; c.width = W; c.height = H;
+    x.fillStyle = 'rgba(29, 25, 19, 0.84)'; x.beginPath(); x.roundRect(2, 2, W - 4, H - 4, 22); x.fill();
+    x.textBaseline = 'middle';
+    x.fillStyle = col || '#f2c200'; x.font = '700 50px system-ui, sans-serif'; x.fillText(id, 22, sub ? 40 : H / 2);
+    const w0 = x.measureText(id).width + 36;
+    const fit = (t0, w) => { let t = t0 || '-'; while (x.measureText(t).width > w && t.length > 4) t = t.slice(0, -2); return t === (t0 || '-') ? t : t.slice(0, -1) + '…'; };
+    if (sub) { x.fillStyle = '#c9a77c'; x.font = '600 30px system-ui, sans-serif'; x.fillText(fit(sub, W - w0 - 22), w0, 40); }
+    x.fillStyle = '#f3efe8'; x.font = '500 32px system-ui, sans-serif';
+    if (sub) x.fillText(fit(text, W - 44), 22, 92); else x.fillText(fit(text, W - w0 - 22), w0, H / 2);
+    const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; return tx;
+  }
+  const deviceOf = (sid) => { const l = (SW.data.legs || []).find((l) => l.id === sid); return l && l.device ? l.device.replace(/^.*radenie /, '') : ''; };
+  function describe(sid) {
+    const gs = groupsOf(sid); if (!gs.length) return 'nothing yet';
+    return gs.map((g) => (g.name || g.lights.join(' ')) + (g.switches.length > 1 ? ' (' + (g.switches.length > 2 ? 'multi-way' : 'two-way') + ')' : '')).join(' · ');
+  }
+  function drawLabels() {
+    SW.labels.children.slice().forEach((o) => { SW.labels.remove(o); o.material.map.dispose(); o.material.dispose(); });
+    for (const e of SW.data.eq.filter((e) => e.kind === 'switch')) {
+      const dv = deviceOf(e.id);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(e.id, describe(e.id), dv ? 'radenie ' + dv : '', '#f2c200'), depthTest: false, transparent: true, sizeAttenuation: false }));
+      sp.center.set(0.5, 0); sp.scale.set(0.18, 0.045, 1); sp.position.set(e.p[0], e.p[1] + 0.10, e.p[2]); sp.renderOrder = 30;   // the same size on screen near or far
+      SW.labels.add(sp);
+    }
+  }
+  const KCOL = { socket: '#f2c200', board: '#f2c200', towel: '#f2c200', ac: '#00b8d4', ac_out: '#00b8d4', media: '#b98cff', data: '#b98cff',
+                 tv: '#b98cff', intercom: '#b98cff', ap: '#b98cff', thermostat: '#ff8c00', manifold: '#ff8c00', meter_h: '#ff8c00',
+                 meter_w: '#6aa0ff', revision: '#6aa0ff', fan: '#1fa84a', hrv: '#1fa84a', supply_valve: '#1fa84a', extract_valve: '#1fa84a' };
+  const near = new THREE.Group(); root.add(near);
+  function drawNear() {                                       // one label per fixture; shown when within 4 m (see the timer)
+    near.clear();
+    for (const e of SW.data.labels || []) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(e.id, e.name, '', KCOL[e.kind]), depthTest: false, transparent: true, sizeAttenuation: false }));
+      sp.center.set(0.5, 0); sp.scale.set(0.15, 0.0375, 1); sp.position.set(e.p[0], e.p[1] + 0.08, e.p[2]); sp.renderOrder = 29; sp.visible = false;
+      near.add(sp);
+    }
+  }
+  const eye = new THREE.Vector3();
+  setInterval(() => {
+    if (!near.visible || !near.children.length) return;
+    camera.getWorldPosition(eye); near.worldToLocal(eye);
+    for (const sp of near.children) sp.visible = sp.position.distanceTo(eye) < 4.0;
+  }, 250);
+  const showLabels = () => {
+    SW.labels.visible = XR.on && $('xrayLab').checked && !(XR.hidden.has('power') && XR.hidden.has('power_light'));
+    near.visible = XR.on && $('xrayLab').checked;
+  };
+  function drawMarks() {
+    SW.marks.clear(); if (SW.lines) { root.remove(SW.lines); SW.lines = null; }
+    const act = SW.sel && groupsOf(SW.sel)[SW.act];
+    for (const e of SW.data.eq) {
+      const isSw = e.kind === 'switch', g = !isSw && SW.draft.groups.find((g) => g.lights.includes(e.id));
+      let col = '#9a9a9a';                                    // a light of another switch
+      if (isSw) col = e.id === SW.sel ? '#c9a77c' : '#ffffff';
+      else if (act && act.lights.includes(e.id)) col = '#fff07a';            // in the group being edited
+      else if (SW.sel && g && g.switches.includes(SW.sel)) col = '#b8a24a';  // in this switch's other group
+      else if (!g && !(SW.draft.own || {})[e.id]) col = '#ff5a4a';           // no switch yet
+      const m = new THREE.Mesh(new THREE.SphereGeometry(isSw ? 0.07 : 0.09, 16, 12),
+        new THREE.MeshBasicMaterial({ color: col, depthTest: false, transparent: true, opacity: 0.95 }));
+      m.position.set(...e.p); m.renderOrder = 31; m.userData = { id: e.id, sw: isSw, xrSkip: true }; SW.marks.add(m);
+    }
+    if (SW.sel) {                                             // lines from the switch to its lights
+      const s = eqById(SW.sel), v = [];
+      for (const g of groupsOf(SW.sel)) for (const l of g.lights) { const e = eqById(l); if (e) v.push(...s.p, ...e.p); }
+      if (v.length) {
+        const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        SW.lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: '#fff07a', depthTest: false, transparent: true, opacity: 0.8 }));
+        SW.lines.renderOrder = 30; SW.lines.userData.xrSkip = true; root.add(SW.lines);
+      }
+    }
+  }
+  function cables() {
+    const sc = SW.data.schedule || {}, c = sc.cables_m || {};
+    const ks = Object.keys(c).filter((k) => /^CYKY/.test(k));
+    $('swxCables').textContent = ks.length ? 'Cables (power, +' + Math.round((sc.reserve || 0) * 100) + ' %): ' + ks.map((k) => k + ' ' + c[k] + ' m').join(' · ') : '';
+  }
+  function panel() {
+    const head = $('swxHead'), box = $('swxGroups'); box.textContent = '';
+    $('swxTools').hidden = !SW.sel; $('swxSave').disabled = !SW.dirty;
+    if (!SW.sel) { head.textContent = 'Click a switch, then the lights it controls.'; return; }
+    const gs = groupsOf(SW.sel);
+    head.textContent = SW.sel + ' · ' + (gs.length > 1 ? 'double switch' : gs.length && gs[0].switches.length > 1 ? 'two-way' : 'switch') +
+      (deviceOf(SW.sel) && !SW.dirty ? ' (radenie ' + deviceOf(SW.sel) + ')' : '') + ': click lights to add or remove';
+    gs.forEach((g, i) => {
+      const d = document.createElement('div'); d.className = 'swxg' + (i === SW.act ? ' on' : '');
+      const inp = document.createElement('input'); inp.value = g.name || ''; inp.placeholder = 'Name, e.g. Obývačka'; inp.setAttribute('aria-label', 'Group name');
+      inp.addEventListener('input', () => { g.name = inp.value.slice(0, 60); SW.dirty = true; $('swxSave').disabled = false; drawLabels(); });
+      const sm = document.createElement('small');
+      sm.textContent = (g.lights.join(', ') || 'no lights yet') + (g.switches.length > 1 ? ' · with ' + g.switches.filter((x) => x !== SW.sel).join(', ') : '');
+      d.append(inp, sm); d.addEventListener('click', () => { SW.act = i; panel(); drawMarks(); }); box.append(d);
+    });
+  }
+  const changed = () => { SW.dirty = true; drawLabels(); drawMarks(); panel(); };
+  function editMode(on) {
+    SW.edit = on; $('swxBtn').setAttribute('aria-pressed', String(on)); $('swx').hidden = !on; $('xray').classList.toggle('editing', on);
+    SW.marks.visible = on; $('swxMsg').textContent = '';
+    if (!on) { SW.sel = null; SW.link = false; if (SW.lines) { root.remove(SW.lines); SW.lines = null; } } else drawMarks();
+    panel(); cables();
+  }
+  const rc = new THREE.Raycaster(), nd = new THREE.Vector2();
+  window.__switchTap = (x, y) => {
+    if (!SW.edit || !XR.on) return false;
+    const r = renderer.domElement.getBoundingClientRect();
+    nd.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1); rc.setFromCamera(nd, camera);
+    let best = null, bd = 0.25;                                // the nearest marker to the ray (they sit in ghosted walls)
+    for (const m of SW.marks.children) { const d = rc.ray.distanceToPoint(m.position); if (d < bd) { bd = d; best = m; } }
+    if (!best) return true;
+    const id = best.userData.id; $('swxMsg').textContent = '';
+    if (best.userData.sw) {
+      if (SW.link && SW.sel && id !== SW.sel) {                 // two-way: this switch joins the active group
+        const g = groupsOf(SW.sel)[SW.act]; if (g && !g.switches.includes(id)) g.switches.push(id);
+        SW.link = false; $('swxLink').setAttribute('aria-pressed', 'false'); changed(); return true;
+      }
+      SW.sel = id; SW.act = 0; SW.link = false; $('swxLink').setAttribute('aria-pressed', 'false');
+      if (!groupsOf(id).length) SW.draft.groups.push({ name: '', lights: [], switches: [id] });
+      drawMarks(); panel(); return true;
+    }
+    if (!SW.sel) { $('swxMsg').textContent = 'First click a switch.'; return true; }
+    const g = groupsOf(SW.sel)[SW.act]; if (!g) return true;
+    if (g.lights.includes(id)) g.lights = g.lights.filter((l) => l !== id);
+    else { SW.draft.groups.forEach((o) => { o.lights = o.lights.filter((l) => l !== id); }); g.lights.push(id); if (SW.draft.own) delete SW.draft.own[id]; }
+    changed(); return true;
+  };
+  $('swxBtn').addEventListener('click', () => { if (SW.edit) $('swxCancel').click(); else editMode(true); });
+  $('swxNew').addEventListener('click', () => { if (!SW.sel) return; SW.draft.groups.push({ name: '', lights: [], switches: [SW.sel] }); SW.act = groupsOf(SW.sel).length - 1; changed(); });
+  $('swxLink').addEventListener('click', () => { SW.link = !SW.link; $('swxLink').setAttribute('aria-pressed', String(SW.link)); $('swxMsg').textContent = SW.link ? 'Now click the other switch.' : ''; });
+  $('swxUnlink').addEventListener('click', () => {
+    const g = SW.sel && groupsOf(SW.sel)[SW.act]; if (!g) return;
+    g.switches = g.switches.filter((x) => x !== SW.sel); SW.draft.groups = SW.draft.groups.filter((o) => o.switches.length || o.lights.length);
+    SW.act = 0; changed();
+  });
+  $('swxCancel').addEventListener('click', () => {
+    if (SW.dirty && !confirm('Leave without saving the switching?')) return;
+    SW.draft = JSON.parse(JSON.stringify(SW.data.switching)); SW.dirty = false; drawLabels(); editMode(false);
+  });
+  $('swxSave').addEventListener('click', async () => {
+    const b = $('swxSave'); b.disabled = true; $('swxMsg').textContent = 'Saving and rebuilding the cables…';
+    SW.draft.groups = SW.draft.groups.filter((g) => g.lights.length || g.switches.length);
+    try {
+      const r = await fetch('/api/switching?flat=' + encodeURIComponent(window.__studio.flat),
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(SW.draft) });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error || 'not saved');
+      SW.data = j.services; SW.draft = JSON.parse(JSON.stringify(SW.data.switching)); SW.dirty = false;
+      loadServices(Date.now()); drawLabels(); drawNear(); drawMarks(); panel(); cables(); $('swxMsg').textContent = 'Saved. The cables follow the new switching.';
+    } catch (e) { b.disabled = false; $('swxMsg').textContent = 'Not saved: ' + e.message; }
+  });
+  $('xrayLab').addEventListener('change', showLabels);
+  fetch('services.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).then((j) => {
+    if (!j || !j.eq) return;
+    SW.data = j; SW.draft = JSON.parse(JSON.stringify(j.switching || { groups: [] })); SW.draft.groups = SW.draft.groups || [];
+    $('xrayLabRow').hidden = false; $('swxBtn').hidden = false; drawLabels(); drawNear(); showLabels();
+  }).catch(() => {});
+  XR.showLabels = showLabels; XR.sw = SW;
+  fetch('/api/outside?flat=' + encodeURIComponent(window.__studio.flat)).then((r) => r.ok ? r.json() : null).then((inf) => {
+    if (!inf || !inf.frame) return;
+    const [W, N, Z0] = inf.frame;
+    new GLTFLoader().load('risers.glb', (g) => {
+      take(g, true); g.scene.position.set(-W, -Z0, N); root.add(g.scene); $('xrayRisRow').hidden = false; trades();
+    }, undefined, () => {});                                 // no risers file: no risers
+  }).catch(() => {});
+  $('xrayEq').addEventListener('change', (e) => { XR.eq = e.target.checked; apply(); });
+  $('xrayRis').addEventListener('change', (e) => { XR.ris = e.target.checked; apply(); });
+  $('xrayAll').addEventListener('change', (e) => {          // every trade, the fixtures and the risers on, or all off
+    const on = e.target.checked;
+    document.querySelectorAll('#xrayTrades input').forEach((c) => { c.checked = on; if (on) XR.hidden.delete(c.dataset.trade); else XR.hidden.add(c.dataset.trade); });
+    $('xrayEq').checked = on; XR.eq = on; $('xrayRis').checked = on; XR.ris = on; apply();
+  });
+  XR.pick = () => { const a = []; root.traverse((o) => { if (o.isMesh && o.visible) a.push(o); }); return a; };   // notes on a route
+  btn.addEventListener('click', () => {
+    if (btn.hidden) return;
+    if (XR.on && XR.sw && XR.sw.edit) { $('swxCancel').click(); if (XR.sw.edit) return; }
+    XR.on = !XR.on; btn.setAttribute('aria-pressed', String(XR.on)); $('xray').hidden = !XR.on;
+    ghost(XR.on); apply();
+  });
+  addEventListener('keydown', (e) => { if (e.code === 'KeyI' && !e.repeat && !typing(e) && !btn.hidden) btn.click(); });
+  window.__xray = XR;   // for checks from the console
+}
 if (window.__studio) {
   const sv = $('saveView'); sv.hidden = false;
   sv.addEventListener('click', async () => {
