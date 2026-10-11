@@ -164,6 +164,12 @@ body.swapping #view canvas { cursor: pointer; }
 #swapGrid .big .cap .badge.ready { background: rgba(124, 194, 140, 0.3); color: var(--ink); }
 #swapGrid .big .cap { justify-items: start; }
 #swapGrid .big .nav { display: flex; gap: 6px; align-items: center; }
+#swapGrid .big .rel { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+#swapGrid .big .rel button, .relchip button { font: 500 11.5px/1 var(--ui); padding: 5px 9px; border-radius: 999px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.18); color: var(--ink-dim); cursor: pointer; }
+#swapGrid .big .rel button:hover, .relchip button:hover { color: var(--ink); border-color: var(--oak); }
+.relchip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+#swapHead .relchip b { font-size: 12.5px; font-weight: 600; color: var(--oak); }
+.relchip button[aria-pressed="true"] { background: var(--oak); border-color: var(--oak); color: #1d1913; }
 #swapGrid .big .nav button { display: inline-block; padding: 8px 13px; text-align: center; font: 500 13px/1 var(--ui); border-radius: 8px; background: rgba(0, 0, 0, 0.22); border: 0; }
 #swapGrid .big .nav .count { font-size: 12px; color: var(--ink-dim); font-variant-numeric: tabular-nums; min-width: 70px; text-align: center; }
 #swapGrid .big .nav .go { margin-left: auto; background: var(--oak); color: #1d1913; font-weight: 600; }
@@ -768,7 +774,8 @@ const measure = (() => {
 // Jano, 9 Oct: also the catalogues - Poly Haven and BlendKit (free and paid), pictures only (/api/furncat, furncat.py).
 // A picked free model downloads then; a paid one is kept as wanted until there is a BlendKit plan.
 const swapUI = (() => {
-  const st = { on: false, F: null, sel: null, helper: null, src: 'lib', q: '', res: null, key: '', busy: false, view: 'grid', at: 0, atKey: '' };
+  const st = { on: false, F: null, sel: null, helper: null, src: 'lib', q: '', res: null, key: '', busy: false, view: 'grid', at: 0, atKey: '',
+               rel: null, relAll: false };    // rel: "more by this author / of this brand" (BlendKit), kept from piece to piece
   const SRC = [['lib', 'Library'], ['ph', 'Poly Haven'], ['bkf', 'BlendKit free'], ['bkp', 'BlendKit paid']];
   const btn = $('swapBtn'), panel = $('swapPanel'), ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
   if (!window.__studio) return { active: () => false, tap() {} };
@@ -845,6 +852,30 @@ const swapUI = (() => {
     await fetch(api('/api/swaps/cancel'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
     await load(); render();
   }
+  // Jano, 11 Oct ("I want to see related assets so they can be combined"): BlendKit has no collections in its data, but
+  // every model has its author, and brands come as tags (often also "Designer : …" in the description). The large view
+  // offers "More by <author>", the brand and a few telling tags; the choice stays on while you go from piece to piece
+  // (the sofa's author, then the coffee table and the lamp from the same hand), "All kinds" shows their whole set.
+  const GENERIC = new Set(['archviz', 'interior', 'furniture', 'modern', '3d', 'model', 'design', 'home', 'decor', 'living', 'livingroom', 'room',
+    'realistic', 'pbr', 'lowpoly', 'highpoly', 'blender', 'cycles', 'eevee', 'free', 'contemporary', 'house', 'indoor', 'apartment', 'object']);
+  const relTerm = () => !st.rel ? '' : (st.rel.kind === 'author' ? 'author_id:' + st.rel.id : st.rel.word) + (st.relAll ? ' kind:all' : '');
+  function setRel(r) {
+    st.rel = r; st.relAll = false; if (r && !['bkf', 'bkp'].includes(st.src)) st.src = 'bkf';
+    st.res = null; st.atKey = ''; render();
+  }
+  function relRow(r) {
+    const row = document.createElement('div'); row.className = 'rel';
+    const add = (txt, title, rel) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = txt; b.title = title; b.addEventListener('click', () => setRel(rel)); row.append(b); };
+    if (r.aid && r.author) add('More by ' + r.author, 'What ' + r.author + ' made - it stays on for the other pieces until you clear it', { kind: 'author', id: r.aid, label: 'by ' + r.author });
+    const seen = new Set();
+    if (r.brand) { add(r.brand, 'More of the brand ' + r.brand, { kind: 'word', word: r.brand, label: r.brand }); seen.add(r.brand.toLowerCase()); }
+    for (const t of r.tags || []) {
+      const k = t.toLowerCase();
+      if (seen.size >= 5 || seen.has(k) || GENERIC.has(k) || (r.cat || []).some((w) => w && k.includes(w))) continue;
+      seen.add(k); add('#' + t, 'More tagged ' + t, { kind: 'word', word: t, label: '#' + t });
+    }
+    return row.childNodes.length ? row : null;
+  }
   function render() {
     const head = $('swapHead'), grid = $('swapGrid'); head.textContent = ''; grid.textContent = ''; $('swapUndo').hidden = true;
     panel.hidden = false;
@@ -911,7 +942,7 @@ const swapUI = (() => {
       b.append(im, n, sm); if (c.badge) b.append(c.badge());
       if (c.current) b.setAttribute('aria-current', 'true');
       b.setAttribute('aria-pressed', c.chosen ? 'true' : 'false'); b.title = c.title;
-      b.addEventListener('click', () => { if (!c.chosen) c.pick(); });
+      b.addEventListener('click', () => { if (c.look) { st.at = cards.indexOf(c); setView('large'); } else if (!c.chosen) c.pick(); });
       grid.append(b);
     }
     if (more && more.has) {
@@ -931,13 +962,14 @@ const swapUI = (() => {
     const nm = document.createElement('b'); nm.textContent = c.name; cap.append(nm);
     if (c.sub || c.by) { const sm = document.createElement('small'); sm.textContent = [c.sub, c.by].filter(Boolean).join(' · '); cap.append(sm); }
     if (c.badge) cap.append(c.badge());
+    if (c.rel) { const rr = relRow(c.rel); if (rr) cap.append(rr); }
     const nav = document.createElement('div'); nav.className = 'nav';
     const prev = document.createElement('button'); prev.type = 'button'; prev.textContent = '‹'; prev.setAttribute('aria-label', 'Previous'); prev.disabled = st.at === 0;
     const count = document.createElement('span'); count.className = 'count'; count.textContent = (st.at + 1) + ' / ' + cards.length + (more && more.has ? '+' : '');
     const next = document.createElement('button'); next.type = 'button'; next.textContent = '›'; next.setAttribute('aria-label', 'Next');
     next.disabled = st.at >= cards.length - 1 && !(more && more.has);
     const go = document.createElement('button'); go.type = 'button'; go.className = 'go';
-    go.textContent = c.chosen ? 'Chosen' : 'Swap to this'; go.disabled = !!c.chosen; go.title = c.title;
+    go.textContent = c.look ? 'Pick it in its own piece' : c.chosen ? 'Chosen' : 'Swap to this'; go.disabled = !!c.chosen || !!c.look; go.title = c.title;
     go.addEventListener('click', () => { if (!c.chosen) c.pick(); });
     nav.append(prev, count, next, go);
     box.append(pic, cap, nav); grid.append(box);
@@ -965,13 +997,24 @@ const swapUI = (() => {
     const go = document.createElement('button'); go.type = 'submit'; go.textContent = 'Search';
     qb.append(qi, go); qb.addEventListener('submit', (e) => { e.preventDefault(); st.q = qi.value.trim(); st.res = null; render(); });
     head.append(qb);
-    const key = [sl.cat, st.src, st.q].join('|');
+    if (st.rel && src === 'bk') {                       // the related filter, kept from piece to piece
+      const ch = document.createElement('div'); ch.className = 'relchip';
+      const lb = document.createElement('b'); lb.textContent = 'Showing ' + st.rel.label;
+      const all = document.createElement('button'); all.type = 'button'; all.textContent = 'All kinds'; all.setAttribute('aria-pressed', String(st.relAll));
+      all.title = st.relAll ? 'Back to ' + catName(sl.cat).toLowerCase() + ' only' : 'Everything ' + st.rel.label + ', to see what goes together (each is picked in its own piece)';
+      all.addEventListener('click', () => { st.relAll = !st.relAll; st.res = null; st.atKey = ''; render(); });
+      const x = document.createElement('button'); x.type = 'button'; x.textContent = '× Clear'; x.title = 'All ' + catName(sl.cat).toLowerCase() + ' again';
+      x.addEventListener('click', () => setRel(null));
+      ch.append(lb, all, x); head.append(ch);
+    }
+    const qq = [st.q, src === 'bk' ? relTerm() : ''].filter(Boolean).join(' ');
+    const key = [sl.cat, st.src, qq].join('|');
     if (st.key !== key || !st.res) { st.key = key; st.res = { items: [], page: 0, more: true, count: null, err: '' }; }
     const R = st.res;
     const page = async () => {
       if (st.busy || !R.more) return; st.busy = true;
       try {
-        const r = await fetch('/api/furncat?' + new URLSearchParams({ cat: sl.cat, src, free, q: st.q, page: R.page }));
+        const r = await fetch('/api/furncat?' + new URLSearchParams({ cat: sl.cat, src, free, q: qq, page: R.page }));
         const j = await r.json(); if (!r.ok) throw new Error(j.error || 'The catalogue did not answer.');
         R.items.push(...j.items); R.more = j.more; R.count = j.count; R.page++;
       } catch (e) { R.err = e.message; R.more = false; }
@@ -980,7 +1023,8 @@ const swapUI = (() => {
     if (!R.items.length && R.more && !R.err) { msg('Loading the catalogue…'); page(); return; }
     if (R.err && !R.items.length) { msg(R.err); return; }
     const n = document.createElement('div'); n.className = 'empty';
-    n.textContent = (R.count != null ? R.count + ' found · ' : '') + (st.src === 'bkp' ? 'Paid: picking one keeps it as wanted (nothing is bought); it downloads once there is a BlendKit plan.'
+    n.textContent = (R.count != null ? R.count + ' found · ' : '') + (st.rel && st.relAll && src === 'bk' ? 'Everything ' + st.rel.label + ', to see what goes together: pick each one in its own piece of furniture.'
+      : st.src === 'bkp' ? 'Paid: picking one keeps it as wanted (nothing is bought); it downloads once there is a BlendKit plan.'
       : 'Picking one downloads it (free), then the next furnish build puts it in. Sizes are the real ones.');
     grid.append(n);
     if (!R.items.length) { msg('Nothing found.'); return; }
@@ -988,8 +1032,11 @@ const swapUI = (() => {
     gallery(grid, R.items.map((it) => {
       const lid = (it.src === 'ph' ? 'phx_' : 'bkx_') + it.id.replace(/[^A-Za-z0-9]/g, '').slice(0, 12);
       const known = picked[lid] || {}, state = it.state || known.status;
-      return { img: it.thumb, big: it.big, name: it.name, sub: dims(it.dims), by: it.author ? 'by ' + it.author : '', chosen: lid === want,
-        title: (lid === want ? 'Chosen · ' : 'Swap to ') + it.name + (it.author ? ' · by ' + it.author : '') + (it.free ? '' : ' · paid BlendKit model'),
+      const look = !!(st.rel && st.relAll);                // all kinds: to look at, each is picked in its own piece
+      return { img: it.thumb, big: it.big, name: it.name, sub: [look && it.bkcat ? it.bkcat.replace(/-/g, ' ') : '', dims(it.dims)].filter(Boolean).join(' · '),
+        by: it.author ? 'by ' + it.author : '', chosen: lid === want, look,
+        rel: it.src === 'bk' ? { aid: it.author_id, author: it.author, brand: it.brand, tags: it.tags, cat: catName(sl.cat).toLowerCase().split(/\s+/) } : null,
+        title: (look ? 'Look at ' : lid === want ? 'Chosen · ' : 'Swap to ') + it.name + (it.author ? ' · by ' + it.author : '') + (it.free ? '' : ' · paid BlendKit model'),
         badge: () => { const bd = document.createElement('span'); bd.className = 'badge' + (state === 'ready' ? ' ready' : it.free ? '' : ' paid');
           bd.textContent = { ready: 'downloaded', downloading: 'downloading…', wanted: 'wanted', failed: 'download failed' }[state] || (it.free ? 'free' : 'paid'); return bd; },
         pick: () => choose('', { src: it.src, id: it.id, name: it.name, thumb: it.thumb, free: it.free, dims: it.dims, page: it.page }) };
