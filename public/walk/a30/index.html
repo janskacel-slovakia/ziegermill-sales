@@ -127,6 +127,10 @@ body.noting #view canvas { cursor: crosshair; }
 #xray .swxg.on { border-color: var(--oak); background: rgba(201, 167, 124, 0.12); }
 #xray .swxg input { font: 500 12px/1.2 var(--ui); background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); padding: 2px 0; width: 100%; }
 #xray .swxg small, #xray .swxmsg, #xray .swxcab { color: var(--ink-dim); font-size: 11px; }
+#xray .nb { display: grid; gap: 3px; border-top: 1px solid var(--line); padding-top: 5px; margin-top: 2px; }
+#xray .nb[hidden] { display: none; }
+#xray .nblist { display: grid; gap: 2px; padding-left: 18px; max-height: 150px; overflow: auto; }
+#xray .nblist label { font-size: 12px; }
 #xray .note { margin-top: 4px; font-size: 11px; color: var(--ink-dim); }
 #measure { position: fixed; right: 16px; top: calc(126px + env(safe-area-inset-top, 0px)); width: 40px; height: 40px; padding: 0; color: var(--ink); cursor: pointer; display: grid; place-items: center; }
 #measure svg { width: 22px; height: 22px; }
@@ -222,7 +226,7 @@ body.swapping #view canvas { cursor: pointer; }
   <div class="row"><button type="button" id="guideOk" class="primary">Got it</button></div>
 </div>
 <div id="tools" class="chip" hidden><button type="button" id="addNote" aria-pressed="false">Add note</button><button type="button" id="showNotes">Notes</button><button type="button" id="swapBtn" hidden aria-pressed="false" title="Click a piece of furniture and pick another one from the library">Swap</button><button type="button" id="saveView" hidden title="Keep this view for a full-quality preview render (Bake tab)">Save view</button><button type="button" id="xrayBtn" hidden aria-pressed="false" aria-controls="xray" title="X-ray: the building services through the walls (key I)">Services</button></div>
-<div id="xray" class="chip" hidden role="group" aria-label="Services"><label class="all"><input type="checkbox" id="xrayAll" checked> All</label><div class="trades" id="xrayTrades"></div><label id="xrayEqRow" hidden><input type="checkbox" id="xrayEq" checked> Fixtures and equipment</label><label id="xrayRisRow" hidden title="The building's risers and the collectors in the ground under 1.NP (tender plans, sizes from the 2023 permit), a darker shade"><input type="checkbox" id="xrayRis" checked> Building risers (darker)</label><label id="xrayLabRow" hidden><input type="checkbox" id="xrayLab" checked> Labels (switches; other fixtures within 4 m)</label><button type="button" id="swxBtn" hidden aria-pressed="false" title="Which switch controls which lights: click a switch, then its lights">Edit switching</button><div class="swx" id="swx" hidden><div id="swxHead" class="swxhead">Click a switch, then the lights it controls.</div><div id="swxGroups"></div><div class="row" id="swxTools" hidden><button type="button" id="swxNew" title="Another group of lights on this switch (a double switch)">+ Group</button><button type="button" id="swxLink" aria-pressed="false" title="Then click another switch: both control this group (two-way)">+ Switch</button><button type="button" id="swxUnlink" title="This switch no longer controls this group">Remove</button></div><div class="row"><button type="button" id="swxSave" class="primary" disabled>Save</button><button type="button" id="swxCancel">Done</button></div><div id="swxMsg" class="swxmsg"></div><div id="swxCables" class="swxcab"></div></div><div class="note">Rozpočtový pilot, nie projekt. Trasy sú schematické.</div></div>
+<div id="xray" class="chip" hidden role="group" aria-label="Services"><label class="all"><input type="checkbox" id="xrayAll" checked> All</label><div class="trades" id="xrayTrades"></div><label id="xrayEqRow" hidden><input type="checkbox" id="xrayEq" checked> Fixtures and equipment</label><label id="xrayRisRow" hidden title="The building's risers and the collectors in the ground under 1.NP (tender plans, sizes from the 2023 permit), a darker shade"><input type="checkbox" id="xrayRis" checked> Building risers (darker)</label><div class="nb" id="xrayNb" hidden><label class="all" title="The flats next to this one, above and below: outline, wet rooms (bathroom / WC blue, kitchen green), their services where designed"><input type="checkbox" id="xrayNbAll" checked> Neighbouring flats</label><div id="xrayNbList" class="nblist"></div></div><label id="xrayLabRow" hidden><input type="checkbox" id="xrayLab" checked> Labels (switches; other fixtures within 4 m)</label><button type="button" id="swxBtn" hidden aria-pressed="false" title="Which switch controls which lights: click a switch, then its lights">Edit switching</button><div class="swx" id="swx" hidden><div id="swxHead" class="swxhead">Click a switch, then the lights it controls.</div><div id="swxGroups"></div><div class="row" id="swxTools" hidden><button type="button" id="swxNew" title="Another group of lights on this switch (a double switch)">+ Group</button><button type="button" id="swxLink" aria-pressed="false" title="Then click another switch: both control this group (two-way)">+ Switch</button><button type="button" id="swxUnlink" title="This switch no longer controls this group">Remove</button></div><div class="row"><button type="button" id="swxSave" class="primary" disabled>Save</button><button type="button" id="swxCancel">Done</button></div><div id="swxMsg" class="swxmsg"></div><div id="swxCables" class="swxcab"></div></div><div class="note">Rozpočtový pilot, nie projekt. Trasy sú schematické.</div></div>
 <button id="measure" class="chip" type="button" aria-pressed="false" aria-label="Measure" title="Measure: tap two points"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 16.5 16.5 3 21 7.5 7.5 21z"/><path d="M7 12.5l1.8 1.8M9.8 9.7l2.6 2.6M12.6 6.9l1.8 1.8M15.4 4.1"/></svg></button>
 <div id="mLabel" hidden></div>
 <div id="notePanel" class="panel" hidden role="dialog" aria-labelledby="noteTitle">
@@ -753,7 +757,7 @@ const measure = (() => {
                    again: touch ? 'Tap again to start a new measurement' : 'Click again to start a new measurement', name: 'Measure' };
   const btn = $('measure'), lab = $('mLabel'); btn.setAttribute('aria-label', L.name); btn.title = L.name;
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-  const st = { on: false, a: null, b: null, objs: [] };
+  const st = { on: false, a: null, b: null, p: null, objs: [], live: null, liveDot: null, t: 0 };
   function dotTex() {
     const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d');
     g.beginPath(); g.arc(16, 16, 11, 0, Math.PI * 2); g.fillStyle = '#c9a77c'; g.fill(); g.lineWidth = 4; g.strokeStyle = '#1d1913'; g.stroke();
@@ -761,7 +765,35 @@ const measure = (() => {
   }
   const dot = dotTex();
   function add(o) { o.renderOrder = 11; scene.add(o); st.objs.push(o); return o; }
-  function clear() { for (const o of st.objs) scene.remove(o); st.objs = []; st.a = st.b = null; lab.hidden = true; }
+  function clear() { for (const o of st.objs) scene.remove(o); st.objs = []; st.a = st.b = st.p = null; st.live = st.liveDot = null; lab.hidden = true; }
+  const fm = (v) => v.toFixed(2).replace('.', SKm ? ',' : '.') + ' m';
+  function show(a, b) {                           // the length (and its level / height parts) over the middle of a - b
+    const d = a.distanceTo(b), dv = Math.abs(b.y - a.y), dh = Math.hypot(b.x - a.x, b.z - a.z);
+    lab.innerHTML = fm(d) + (dv > 0.01 && dh > 0.01 ? '<small>' + (SKm ? 'vodorovne ' : 'level ') + fm(dh) + ' · ' + (SKm ? 'zvislo ' : 'height ') + fm(dv) + '</small>' : '');
+    lab.hidden = false; update();
+  }
+  // Jano, 12 Oct: "when I first click start already drawing the line from the initial point to the mouse cursor and see the
+  // distance in realtime" - after the first point a live line follows the mouse (what the cursor is over), with its length
+  function preview(x, y) {
+    if (!st.on || !st.a || st.b) return;
+    const now = performance.now(); if (now - st.t < 30) return; st.t = now;
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(pickables, false)[0];
+    if (!hit) return;
+    st.p = hit.point.clone();
+    if (!st.live) {
+      st.live = add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([st.a, st.p]),
+        new THREE.LineDashedMaterial({ color: 0xc9a77c, depthTest: false, transparent: true, dashSize: 0.06, gapSize: 0.04 })));
+      st.liveDot = add(new THREE.Sprite(new THREE.SpriteMaterial({ map: dot, depthTest: false, sizeAttenuation: false, transparent: true, opacity: 0.8 })));
+      st.liveDot.scale.set(0.022, 0.022, 1);
+    } else st.live.geometry.setFromPoints([st.a, st.p]);
+    st.live.computeLineDistances(); st.liveDot.position.copy(st.p);
+    show(st.a, st.p);
+  }
+  renderer.domElement.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'mouse' && !e.buttons && !document.pointerLockElement) preview(e.clientX, e.clientY);
+  });
   function hint(t) { const h = $('hint'); h.textContent = t; h.classList.remove('gone'); }
   function set(on) {
     st.on = on; btn.setAttribute('aria-pressed', String(on)); clear();
@@ -779,17 +811,16 @@ const measure = (() => {
     sp.scale.set(0.028, 0.028, 1); sp.position.copy(p);
     if (!st.a) { st.a = p; hint(L.b); return; }
     st.b = p;
+    for (const o of [st.live, st.liveDot]) if (o) { scene.remove(o); st.objs = st.objs.filter((x) => x !== o); }
+    st.live = st.liveDot = null;
     const g = new THREE.BufferGeometry().setFromPoints([st.a, st.b]);
     add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xc9a77c, depthTest: false, transparent: true })));
-    const d = st.a.distanceTo(st.b), dv = Math.abs(st.b.y - st.a.y), dh = Math.hypot(st.b.x - st.a.x, st.b.z - st.a.z);
-    const f = (v) => v.toFixed(2).replace('.', SKm ? ',' : '.') + ' m';
-    lab.innerHTML = f(d) + (dv > 0.01 && dh > 0.01 ? '<small>' + (SKm ? 'vodorovne ' : 'level ') + f(dh) + ' · ' + (SKm ? 'zvislo ' : 'height ') + f(dv) + '</small>' : '');
-    lab.hidden = false; hint(L.again); update();
+    show(st.a, st.b); hint(L.again);
   }
   const v = new THREE.Vector3();
-  function update() {                             // keep the length label over the middle of the line
-    if (!st.b) return;
-    v.copy(st.a).add(st.b).multiplyScalar(0.5).project(camera);
+  function update() {                             // keep the length label over the middle of the line (or the live one)
+    const e = st.b || st.p; if (!st.a || !e) return;
+    v.copy(st.a).add(e).multiplyScalar(0.5).project(camera);
     const vis = v.z < 1 && Math.abs(v.x) < 1.2 && Math.abs(v.y) < 1.2;
     lab.style.visibility = vis ? 'visible' : 'hidden';
     if (vis) { const r = renderer.domElement.getBoundingClientRect(); lab.style.left = (r.left + (v.x + 1) / 2 * r.width) + 'px'; lab.style.top = (r.top + (1 - v.y) / 2 * r.height) + 'px'; }
@@ -1693,9 +1724,65 @@ if (window.__studio) {
     $('xrayLabRow').hidden = false; $('swxBtn').hidden = false; drawLabels(); drawNear(); showLabels();
   }).catch(() => {});
   XR.showLabels = showLabels; XR.sw = SW;
+  // ---- the neighbouring flats (Jano, 12 Oct: "I also see the neighboring flats and their trades (switchable on/off).
+  // Especially useful for HVAC to see if the flats can share some pipes"): _mep_pilot\building_units.json
+  // (make_neighbours.py) - the units next to this one (a shared wall or across the corridor) on this floor and the floors right
+  // above / below: their outline, the wet rooms
+  // (bathroom / WC blue, kitchen green, an atelier's main room - where its kitchen is - faint), a label; and their services
+  // where a flat has them (<flat>_services.glb, placed by its own frame). One switch for all, one per flat.
+  const NB = { groups: {} };
+  async function neighbours(F) {
+    const [W, N, Z0] = F, me = window.__studio.flat;
+    const j = await (await fetch('neighbours.json?t=' + Date.now(), { cache: 'no-store' })).json();
+    const FL = ['1PP', '1NP', '2NP', '3NP', '4NP', '5NP', '6NP'], own = j.units.find((u) => u.id === me);
+    if (!own) return;
+    const bb = (o) => { const xs = o.map((p) => p[0]), ys = o.map((p) => p[1]); return [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]; };
+    const ob = bb(own.outline), gx = (b) => Math.max(0, b[0] - ob[1], ob[0] - b[1]), gy = (b) => Math.max(0, b[2] - ob[3], ob[2] - b[3]);
+    const next = (b) => (gx(b) <= 0.4 && gy(b) <= 2.2) || (gy(b) <= 0.4 && gx(b) <= 2.2);   // a shared wall, across the corridor, above / below
+    const list = j.units.filter((u) => u.id !== me && Math.abs(FL.indexOf(u.floor) - FL.indexOf(own.floor)) <= 1 && next(bb(u.outline)))
+      .sort((a, b) => FL.indexOf(b.floor) - FL.indexOf(a.floor) || a.id.localeCompare(b.id, undefined, { numeric: true }));
+    if (!list.length) return;
+    const P = (x, y, z) => new THREE.Vector3(x - W, z - Z0, N - y);
+    const COLS = { wet: ['#4aa3ff', 0.35], kitchen: ['#1fa84a', 0.35], atelier: ['#c9a77c', 0.10] };
+    for (const u of list) {
+      const g = new THREE.Group(); g.userData.nb = u.id;
+      const z0 = u.z[0] + 0.03;
+      const line = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(u.outline.map((p) => P(p[0], p[1], z0))),
+        new THREE.LineBasicMaterial({ color: '#f3efe8', transparent: true, opacity: 0.75, depthTest: false }));
+      line.renderOrder = 22; g.add(line);
+      for (const r of u.rooms) {
+        const c = COLS[r.kind]; if (!c) continue;
+        const sh = new THREE.Shape(r.poly.map((p) => new THREE.Vector2(p[0] - W, N - p[1])));
+        const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({ color: c[0], transparent: true, opacity: c[1], side: THREE.DoubleSide, depthWrite: false }));
+        m.rotation.x = Math.PI / 2; m.position.y = r.z + 0.04 - Z0; m.renderOrder = 21; m.userData.xrSkip = true; g.add(m);
+      }
+      const cx = u.outline.reduce((a, p) => a + p[0], 0) / u.outline.length, cy = u.outline.reduce((a, p) => a + p[1], 0) / u.outline.length;
+      const rel = u.floor === own.floor ? 'same floor' : FL.indexOf(u.floor) > FL.indexOf(own.floor) ? 'above' : 'below';
+      const wet = [...new Set(u.rooms.filter((r) => r.kind !== 'other').map((r) => r.kind === 'atelier' ? 'ateliér (kuchyňa)' : r.name))].join(' · ');
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(u.id.toUpperCase(), wet, u.floor.replace('NP', '.NP') + ' · ' + rel, '#f3efe8'), depthTest: false, transparent: true, sizeAttenuation: false }));
+      sp.center.set(0.5, 0); sp.scale.set(0.16, 0.04, 1); const lp = P(cx, cy, u.z[0] + 1.3); sp.position.copy(lp); sp.renderOrder = 30; g.add(sp);
+      if (u.services) {                                         // its designed services, in its own frame
+        fetch('/api/outside?flat=' + encodeURIComponent(u.id)).then((r) => r.ok ? r.json() : null).then((inf) => {
+          if (!inf || !inf.frame) return;
+          const [Wn, Nn, Z0n] = inf.frame;
+          new GLTFLoader().load('/walk/' + u.id + '/services.glb?t=' + Date.now(), (gl) => {
+            take(gl, false); gl.scene.position.set(Wn - W, Z0n - Z0, N - Nn); g.add(gl.scene); apply();
+          }, undefined, () => {});
+        }).catch(() => {});
+      }
+      root.add(g); NB.groups[u.id] = g;
+      const l = document.createElement('label'), cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = true; cb.addEventListener('change', () => { g.visible = cb.checked && $('xrayNbAll').checked; apply(); });
+      l.append(cb, ' ' + u.id.toUpperCase() + ' · ' + u.floor.replace('NP', '.NP') + ' ' + rel + (u.services ? ' · services' : '')); $('xrayNbList').append(l);
+      g.userData.cb = cb;
+    }
+    $('xrayNb').hidden = false;
+    $('xrayNbAll').addEventListener('change', (e) => { for (const g of Object.values(NB.groups)) g.visible = e.target.checked && g.userData.cb.checked; $('xrayNbList').hidden = !e.target.checked; apply(); });
+  }
   fetch('/api/outside?flat=' + encodeURIComponent(window.__studio.flat)).then((r) => r.ok ? r.json() : null).then((inf) => {
     if (!inf || !inf.frame) return;
     const [W, N, Z0] = inf.frame;
+    neighbours(inf.frame).catch(() => {});
     new GLTFLoader().load('risers.glb', (g) => {
       take(g, true); g.scene.position.set(-W, -Z0, N); root.add(g.scene); $('xrayRisRow').hidden = false; trades();
     }, undefined, () => {});                                 // no risers file: no risers
