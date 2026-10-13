@@ -100,6 +100,9 @@ body.noting #view canvas { cursor: crosshair; }
 #notesList .st { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
 #notesList .reply { font-size: 13px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; border-left: 2px solid var(--oak); padding: 2px 0 2px 8px; }
 #notesList .reply .who { display: block; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--oak); margin-bottom: 2px; }
+#notesList .reply + .reply, #notesList .reply + .edit { margin-top: 6px; }
+#notesList .reply.you { border-left-color: var(--ink-dim); }
+#notesList .reply.you .who { color: var(--ink-dim); }
 #help { position: fixed; right: 16px; top: calc(78px + env(safe-area-inset-top, 0px)); width: 40px; height: 40px; padding: 0; font: 600 17px/1 var(--ui); color: var(--ink); cursor: pointer; }
 #help:hover, #help:focus-visible { background: var(--glass-strong); outline: none; }
 /* measure (Jano, 6 Oct): two taps, a line and its length */
@@ -129,6 +132,8 @@ body.noting #view canvas { cursor: crosshair; }
 #xray .swxg small, #xray .swxmsg, #xray .swxcab { color: var(--ink-dim); font-size: 11px; }
 #xray .nb { display: grid; gap: 3px; border-top: 1px solid var(--line); padding-top: 5px; margin-top: 2px; }
 #xray .nb[hidden] { display: none; }
+#xray .nbkey { font-size: 11.5px; color: var(--dim); display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; }
+#xray .nbkey i { width: 10px; height: 10px; border-radius: 2px; opacity: .8; }
 #xray .nblist { display: grid; gap: 2px; padding-left: 18px; max-height: 150px; overflow: auto; }
 #xray .nblist label { font-size: 12px; }
 #xray .note { margin-top: 4px; font-size: 11px; color: var(--ink-dim); }
@@ -226,7 +231,7 @@ body.swapping #view canvas { cursor: pointer; }
   <div class="row"><button type="button" id="guideOk" class="primary">Got it</button></div>
 </div>
 <div id="tools" class="chip" hidden><button type="button" id="addNote" aria-pressed="false">Add note</button><button type="button" id="showNotes">Notes</button><button type="button" id="swapBtn" hidden aria-pressed="false" title="Click a piece of furniture and pick another one from the library">Swap</button><button type="button" id="saveView" hidden title="Keep this view for a full-quality preview render (Bake tab)">Save view</button><button type="button" id="xrayBtn" hidden aria-pressed="false" aria-controls="xray" title="X-ray: the building services through the walls (key I)">Services</button></div>
-<div id="xray" class="chip" hidden role="group" aria-label="Services"><label class="all"><input type="checkbox" id="xrayAll" checked> All</label><div class="trades" id="xrayTrades"></div><label id="xrayEqRow" hidden><input type="checkbox" id="xrayEq" checked> Fixtures and equipment</label><label id="xrayRisRow" hidden title="The building's risers and the collectors in the ground under 1.NP (tender plans, sizes from the 2023 permit), a darker shade"><input type="checkbox" id="xrayRis" checked> Building risers (darker)</label><div class="nb" id="xrayNb" hidden><label class="all" title="The flats next to this one, above and below: outline, wet rooms (bathroom / WC blue, kitchen green), their services where designed"><input type="checkbox" id="xrayNbAll" checked> Neighbouring flats</label><div id="xrayNbList" class="nblist"></div></div><label id="xrayLabRow" hidden><input type="checkbox" id="xrayLab" checked> Labels (switches; other fixtures within 4 m)</label><button type="button" id="swxBtn" hidden aria-pressed="false" title="Which switch controls which lights: click a switch, then its lights">Edit switching</button><div class="swx" id="swx" hidden><div id="swxHead" class="swxhead">Click a switch, then the lights it controls.</div><div id="swxGroups"></div><div class="row" id="swxTools" hidden><button type="button" id="swxNew" title="Another group of lights on this switch (a double switch)">+ Group</button><button type="button" id="swxLink" aria-pressed="false" title="Then click another switch: both control this group (two-way)">+ Switch</button><button type="button" id="swxUnlink" title="This switch no longer controls this group">Remove</button></div><div class="row"><button type="button" id="swxSave" class="primary" disabled>Save</button><button type="button" id="swxCancel">Done</button></div><div id="swxMsg" class="swxmsg"></div><div id="swxCables" class="swxcab"></div></div><div class="note">Rozpočtový pilot, nie projekt. Trasy sú schematické.</div></div>
+<div id="xray" class="chip" hidden role="group" aria-label="Services"><label class="all"><input type="checkbox" id="xrayAll" checked> All</label><div class="trades" id="xrayTrades"></div><label id="xrayEqRow" hidden><input type="checkbox" id="xrayEq" checked> Fixtures and equipment</label><label id="xrayRisRow" hidden title="The building's risers and the collectors in the ground under 1.NP (tender plans, sizes from the 2023 permit), a darker shade"><input type="checkbox" id="xrayRis" checked> Building risers (darker)</label><div class="nb" id="xrayNb" hidden><label class="all" title="The flats next to this one, above and below: outline, wet rooms (bathroom / WC blue, kitchen green), their services where designed"><input type="checkbox" id="xrayNbAll" checked> Neighbouring flats</label><div class="nbkey"><i style="background:#4aa3ff"></i>bathroom / WC <i style="background:#1fa84a"></i>kitchen <i style="background:#c9a77c"></i>ateliér room with the kitchen</div><div id="xrayNbList" class="nblist"></div></div><label id="xrayLabRow" hidden><input type="checkbox" id="xrayLab" checked> Labels (switches; other fixtures within 4 m)</label><button type="button" id="swxBtn" hidden aria-pressed="false" title="Which switch controls which lights: click a switch, then its lights">Edit switching</button><div class="swx" id="swx" hidden><div id="swxHead" class="swxhead">Click a switch, then the lights it controls.</div><div id="swxGroups"></div><div class="row" id="swxTools" hidden><button type="button" id="swxNew" title="Another group of lights on this switch (a double switch)">+ Group</button><button type="button" id="swxLink" aria-pressed="false" title="Then click another switch: both control this group (two-way)">+ Switch</button><button type="button" id="swxUnlink" title="This switch no longer controls this group">Remove</button></div><div class="row"><button type="button" id="swxSave" class="primary" disabled>Save</button><button type="button" id="swxCancel">Done</button></div><div id="swxMsg" class="swxmsg"></div><div id="swxCables" class="swxcab"></div></div><div class="note">Rozpočtový pilot, nie projekt. Trasy sú schematické.</div></div>
 <button id="measure" class="chip" type="button" aria-pressed="false" aria-label="Measure" title="Measure: tap two points"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 16.5 16.5 3 21 7.5 7.5 21z"/><path d="M7 12.5l1.8 1.8M9.8 9.7l2.6 2.6M12.6 6.9l1.8 1.8M15.4 4.1"/></svg></button>
 <div id="mLabel" hidden></div>
 <div id="notePanel" class="panel" hidden role="dialog" aria-labelledby="noteTitle">
@@ -661,9 +666,37 @@ const notesUI = (() => {
     setTimeout(() => { if (document.activeElement === document.body) ta.focus(); }, 0);
     return box;
   }
+  // a note's conversation (Jano, 13 Oct: "capability to reply to your notes, for example when you ask additional questions, or
+  // when I disagree with the answer"): data.thread = [{by: 'claude' | 'user', text, at, round}]; data.reply (Claude's
+  // latest answer, as before) joins the thread when it isn't in it yet. A reply from here reopens the note.
+  function thread(d) {
+    const t = Array.isArray(d.thread) ? d.thread.filter((e) => e && e.text).slice() : [];
+    if (d.reply && !t.some((e) => e.by === 'claude' && e.text === d.reply)) t.push({ by: 'claude', text: d.reply, round: d.round || '' });
+    return t;
+  }
+  function replyBox(d) {
+    const box = document.createElement('div'); box.className = 'edit';
+    const ta = document.createElement('textarea'); ta.value = st.replying.text; ta.placeholder = 'Your answer, or what you disagree with';
+    ta.setAttribute('aria-label', 'Reply to note ' + (d.n || ''));
+    ta.addEventListener('input', () => { st.replying.text = ta.value; }); box.append(ta);
+    const row = document.createElement('div'); row.className = 'row';
+    const msg = document.createElement('span'); msg.className = 'grow'; msg.textContent = 'Sending reopens the note.';
+    const cancelB = document.createElement('button'); cancelB.type = 'button'; cancelB.textContent = 'Cancel';
+    cancelB.addEventListener('click', () => { st.replying = null; render(true); });
+    const sendB = document.createElement('button'); sendB.type = 'button'; sendB.className = 'primary'; sendB.textContent = 'Send';
+    sendB.addEventListener('click', async () => {
+      const text = ta.value.trim();
+      if (!text) { msg.textContent = 'Write the reply first.'; return; }
+      const patch = { thread: thread(d).concat([{ by: 'user', text, at: new Date().toISOString() }]), status: 'open' };
+      if (await change(d, patch, sendB)) { st.replying = null; render(true); }
+    });
+    row.append(msg, cancelB, sendB); box.append(row);
+    setTimeout(() => ta.focus(), 0);
+    return box;
+  }
   function render(force) {
     // a snapshot arriving while a note is being edited only refreshes the pins; the list waits for the edit to end
-    const busy = !force && st.editing && $('notesOl').contains(document.activeElement);
+    const busy = !force && (st.editing || st.replying) && $('notesOl').contains(document.activeElement);
     for (const p of st.pins) scene.remove(p.sprite);
     const shown = st.list.filter((d) => !(st.hideDone && d.status === 'done'));
     st.pins = shown.map((d) => ({ id: d.id, sprite: makePin(String(d.n || '?'), d.pos || [0, -99, 0], d.status === 'done') }));
@@ -691,17 +724,27 @@ const notesUI = (() => {
       m.textContent = (d.created ? new Date(d.created).toLocaleString() : '') + (d.edited ? ' · edited ' + new Date(d.edited).toLocaleString() : '');
       b.append(editing ? editor(d) : t);
       if (d.shot) { const im = document.createElement('img'); im.src = d.shot; im.alt = 'View when note ' + (d.n || '') + ' was added'; b.append(im); }
-      if (d.reply) {
-        const r = document.createElement('div'); r.className = 'reply';
-        const w = document.createElement('span'); w.className = 'who'; w.textContent = d.status === 'done' ? 'Done' + (d.round ? ' · ' + d.round : '') : 'Earlier reply' + (d.round ? ' · ' + d.round : '');
-        r.append(w, document.createTextNode(d.reply)); b.append(r);
-      }
+      const conv = thread(d), lastC = conv.map((e) => e.by).lastIndexOf('claude');
+      conv.forEach((e, i) => {                                   // the conversation under the note: Claude's answers, your replies
+        const r = document.createElement('div'); r.className = 'reply' + (e.by === 'claude' ? '' : ' you');
+        const w = document.createElement('span'); w.className = 'who';
+        w.textContent = e.by === 'claude' ? (i === lastC && d.status === 'done' ? 'Done' : 'Claude') + (e.round ? ' · ' + e.round : '')
+          : 'You' + (e.at ? ' · ' + new Date(e.at).toLocaleString() : '');
+        r.append(w, document.createTextNode(e.text)); b.append(r);
+      });
+      const replying = st.replying && st.replying.id === d.id;
+      if (replying) b.append(replyBox(d));
       const row = document.createElement('div'); row.className = 'row';
       row.append(m); m.classList.add('grow');
       const acts = document.createElement('div'); acts.className = 'acts';
       const go = document.createElement('button'); go.type = 'button'; go.textContent = 'Go to view';
       go.addEventListener('click', () => { const c = d.cam; if (!c) return; player.x = c.x; player.z = c.z; player.feet = player.target = c.feet; player.yaw = c.yaw; player.pitch = c.pitch; });
       acts.append(go);
+      if (conv.length && !replying && !editing) {               // answer Claude: a question back, or "I disagree"
+        const rp = document.createElement('button'); rp.type = 'button'; rp.textContent = 'Reply';
+        rp.addEventListener('click', () => { st.replying = { id: d.id, text: '' }; st.editing = null; render(true); });
+        acts.append(rp);
+      }
       if (mine(d) && !editing) {
         const ed = document.createElement('button'); ed.type = 'button'; ed.textContent = 'Edit';
         ed.addEventListener('click', () => { st.editing = { id: d.id, text: d.text || '', reopen: true }; render(true); });
@@ -1605,8 +1648,10 @@ if (window.__studio) {
                    meter_w: 'water', revision: 'water', fan: 'ventilation', hrv: 'ventilation', supply_valve: 'ventilation', extract_valve: 'ventilation' };
   const tradeOn = (t) => t === 'water' ? !(XR.hidden.has('cold_water') && XR.hidden.has('hot_water')) : !XR.hidden.has(t);
   // access panels / revision doors (Jano, 12 Oct: "where we have any other revision box or opening, we need to see it ... only
-  // when services are switched on"): a plate where each opens in the finished wall or ceiling, from services.json (panels)
-  const panels = new THREE.Group(); root.add(panels);
+  // when services are switched on"): a plate where each opens in the finished wall or ceiling, from services.json (panels).
+  // Jano, 13 Oct: "I want to see the revision doors also in normal view" - so they hang off the scene, not the x-ray root:
+  // in the normal view only the door's outline on the wall (the shadow gap of a flush door), in the x-ray the plate too
+  const panels = new THREE.Group(); scene.add(panels);
   function drawPanels() {
     panels.clear();
     const Z = new THREE.Vector3(0, 0, 1);
@@ -1614,7 +1659,7 @@ if (window.__studio) {
       const n = new THREE.Vector3(...p.n).normalize(), g = new THREE.Group();
       const m = new THREE.Mesh(new THREE.PlaneGeometry(p.w, p.h), new THREE.MeshBasicMaterial({ color: '#ece8df', transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
       const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: '#1d1913' }));
-      m.renderOrder = 24; e.renderOrder = 25; m.userData.xrSkip = true; g.add(m, e);
+      m.renderOrder = 24; e.renderOrder = 25; m.userData.xrSkip = true; m.userData.plate = true; m.visible = XR.on; g.add(m, e);
       g.quaternion.setFromUnitVectors(Z, n); g.position.set(...p.c).addScaledVector(n, 0.006);
       g.userData.trade = p.trade === 'cold_water' || p.trade === 'hot_water' ? 'water' : p.trade; panels.add(g);
     }
@@ -1642,7 +1687,10 @@ if (window.__studio) {
     SW.labels.visible = XR.on && $('xrayLab').checked && !XR.hidden.has('power_light');     // switches: with the lighting
     near.visible = XR.on && $('xrayLab').checked;
     for (const sp of near.children) if (!tradeOn(sp.userData.trade)) sp.visible = false;
-    for (const g of panels.children) g.visible = XR.on && tradeOn(g.userData.trade);
+    for (const g of panels.children) {                       // always in the normal view; in the x-ray with their trade
+      g.visible = !XR.on || tradeOn(g.userData.trade);
+      for (const o of g.children) if (o.userData.plate) o.visible = XR.on;
+    }
   };
   function drawMarks() {
     SW.marks.clear(); if (SW.lines) { root.remove(SW.lines); SW.lines = null; }
@@ -1782,11 +1830,8 @@ if (window.__studio) {
         const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({ color: c[0], transparent: true, opacity: c[1], side: THREE.DoubleSide, depthWrite: false }));
         m.rotation.x = Math.PI / 2; m.position.y = r.z + 0.04 - Z0; m.renderOrder = 21; m.userData.xrSkip = true; g.add(m);
       }
-      const cx = u.outline.reduce((a, p) => a + p[0], 0) / u.outline.length, cy = u.outline.reduce((a, p) => a + p[1], 0) / u.outline.length;
       const rel = u.floor === own.floor ? 'same floor' : FL.indexOf(u.floor) > FL.indexOf(own.floor) ? 'above' : 'below';
-      const wet = [...new Set(u.rooms.filter((r) => r.kind !== 'other').map((r) => r.kind === 'atelier' ? 'ateliér (kuchyňa)' : r.name))].join(' · ');
-      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(u.id.toUpperCase(), wet, u.floor.replace('NP', '.NP') + ' · ' + rel, '#f3efe8'), depthTest: false, transparent: true, sizeAttenuation: false }));
-      sp.center.set(0.5, 0); sp.scale.set(0.44, 0.11, 1); const lp = P(cx, cy, u.z[0] + 1.3); sp.position.copy(lp); sp.renderOrder = 30; g.add(sp);
+      // no label in the model (Jano, 13 Oct: "remove labels of neighboring flats") - the list in the panel names them
       if (u.services) {                                         // its designed services, in its own frame
         fetch('/api/outside?flat=' + encodeURIComponent(u.id)).then((r) => r.ok ? r.json() : null).then((inf) => {
           if (!inf || !inf.frame) return;
