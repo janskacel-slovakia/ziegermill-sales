@@ -1,0 +1,14 @@
+{
+ "garaz": {
+  "src": "/parking/garaz.png",
+  "w": 2975,
+  "h": 1150,
+  "title": "Garáž 1.PP"
+ },
+ "exterier": {
+  "src": "/parking/exterier.jpg",
+  "w": 1952,
+  "h": 1208,
+  "title": "Vonkajšie státia"
+ }
+}

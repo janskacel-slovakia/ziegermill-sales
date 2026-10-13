@@ -8,6 +8,9 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { translations } from './translations';
 
+// the 3D selector and walkthroughs live on Cloudflare R2 (flats/r2publish.py), not in this deployment
+const SELECTOR_URL = process.env.NEXT_PUBLIC_SELECTOR_URL || 'https://3d.ziegermill.sk/walk/selector/index.html';
+
 // Custom Avenir Font Stacks via Tailwind Arbitrary Values
 const avenirBody = "font-['Avenir_Light',_'Avenir',_'Avenir_Next',_'Helvetica_Neue',_Arial,_sans-serif] font-light";
 const avenirHeading = "font-['Avenir_Black',_'Avenir',_'Avenir_Next',_'Helvetica_Neue',_Arial,_sans-serif] font-black";
@@ -160,6 +163,9 @@ export default function Home() {
   const t = translations[language] as any;
 
   useEffect(() => {
+    // ?lang=sk|en|de (coming back from the 3D selector / walkthroughs) wins over the location guess
+    const asked = new URLSearchParams(window.location.search).get('lang')?.toUpperCase();
+    if (asked === 'SK' || asked === 'EN' || asked === 'DE') { setLanguage(asked); return; }
     const detectUserLocation = async () => {
       try {
         const response = await fetch('https://ipapi.co/json/');
@@ -667,8 +673,8 @@ export default function Home() {
               <button onClick={scrollToForm} className={`border border-white/50 bg-white/20 backdrop-blur-md text-white rounded hover:bg-white hover:text-stone-900 uppercase tracking-widest text-sm px-12 py-4 transition-all duration-500 ${avenirHeading}`}>
                 {t.btnInterest}
               </button>
-              {/* Static 3D building selector in public/walk/selector — plain <a>, Next.js routing doesn't serve it */}
-              <a href="/walk/selector/index.html" className={`border border-white/50 bg-[#544740]/60 backdrop-blur-md text-white rounded hover:bg-[#544740] uppercase tracking-widest text-sm px-12 py-4 transition-all duration-500 text-center ${avenirHeading}`}>
+              {/* 3D building selector, hosted on Cloudflare R2 (3d.ziegermill.sk) since 12 Oct 2026 - not in public/ any more */}
+              <a href={`${SELECTOR_URL}?lang=${language.toLowerCase()}`} className={`border border-white/50 bg-[#544740]/60 backdrop-blur-md text-white rounded hover:bg-[#544740] uppercase tracking-widest text-sm px-12 py-4 transition-all duration-500 text-center ${avenirHeading}`}>
                 Ponuka priestorov
               </a>
             </div>

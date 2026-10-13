@@ -12,6 +12,19 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Ziegermill brand (LOGO/ZIEGERMILL_IDENTITA_V3.pdf): bg-zm-blue, text-zm-ink ... */
+@theme {
+  --color-zm-orange: #ffa62b;
+  --color-zm-blue: #3091b2;
+  --color-zm-accent: #04318c;
+  --color-zm-dark: #544740;
+  --color-zm-neutral: #d6d9c7;
+  --color-zm-ink: #231f20;     /* the logo's black: body text */
+  --color-zm-muted: #6b5e55;   /* secondary text, still readable */
+  --color-zm-paper: #f4f5ef;   /* page background, neutral lightened */
+  --color-zm-line: #e2e4d8;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;

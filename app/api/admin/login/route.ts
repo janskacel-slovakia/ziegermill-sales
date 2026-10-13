@@ -4,7 +4,10 @@ import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   try {
-    const { username, password } = await req.json();
+    const body = await req.json();
+    const username = String(body.username || '').trim().toLowerCase();
+    const password = body.password;
+    const remember = body.remember === true;   // "Zapamätať si ma": 30 days, else until the browser closes (max 12 h)
     if (!username || !password) {
       return NextResponse.json({ error: 'Zadajte meno a heslo' }, { status: 400 });
     }
@@ -18,6 +21,9 @@ export async function POST(req: NextRequest) {
     });
 
     if (error || !data || data.length === 0) {
+      const { data: pending } = await sb.from('admin_users').select('id').eq('username', username)
+        .eq('is_active', false).is('approved_at', null).not('requested_at', 'is', null).limit(1);
+      if (pending?.length) return NextResponse.json({ error: 'Registrácia ešte čaká na schválenie administrátorom.' }, { status: 403 });
       return NextResponse.json({ error: 'Nesprávne prihlasovacie údaje' }, { status: 401 });
     }
 
@@ -25,7 +31,8 @@ export async function POST(req: NextRequest) {
 
     // Create session token
     const token = crypto.randomBytes(48).toString('hex');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const maxAge = remember ? 30 * 86400 : 12 * 3600;
+    const expiresAt = new Date(Date.now() + maxAge * 1000).toISOString();
 
     await sb.from('admin_sessions').insert({ token, user_id: user.id, expires_at: expiresAt });
     await sb.from('admin_users').update({ last_login: new Date().toISOString() }).eq('id', user.id);
@@ -35,7 +42,7 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 86400,
+      ...(remember ? { maxAge } : {}),   // without maxAge the cookie ends with the browser session
       path: '/',
     });
 
