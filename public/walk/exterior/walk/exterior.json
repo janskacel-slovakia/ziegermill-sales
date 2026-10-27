@@ -1,0 +1,327 @@
+{
+ "about": "Baked light of the master model for the studio's Exteri\u00e9r tab and the walkthroughs (bake_exterior.py). Each LM_ mesh's second UV set (uv1) reads its map: linear = sRGB-decoded texel x scale; kind light: colour = base colour x light; kind colour: the colour itself. Trees: light per vertex (COLOR_0 x trees.scale) x their texture. Glass: no map, the sky's reflection. Sky: equirectangular (three.js), x scale. People: cards facing the viewer, feet at p (page coordinates), h tall, w wide.",
+ "source": "flats\\_export\\selector\\building.glb",
+ "source_time": 1792128208.58172,
+ "time": 1793133922.9746978,
+ "target": "walk",
+ "quality": "final",
+ "spp": 256,
+ "day": null,
+ "hour": null,
+ "sun": null,
+ "sunless": true,
+ "sun_ref": {
+  "day": 196,
+  "hour": 7.75,
+  "elevation": 23.8,
+  "azimuth": 83.5,
+  "dir": [
+   0.51177,
+   -0.75857,
+   0.40332
+  ],
+  "strength": 4.0,
+  "color": [
+   1.0,
+   0.949999988079071,
+   0.8799999952316284
+  ],
+  "angle": 0.013962633907794952
+ },
+ "sky_sun": {
+  "clamp": 10.0,
+  "dir": [
+   0.55474,
+   -0.37748,
+   0.74147
+  ],
+  "E": 4.35,
+  "alt": 47.9
+ },
+ "maps": {
+  "LM_building": {
+   "file": "lm_building.jpg",
+   "scale": 0.49149,
+   "size": 4096,
+   "kind": "light"
+  },
+  "LM_site": {
+   "file": "lm_site.jpg",
+   "scale": 0.46159,
+   "size": 2048,
+   "kind": "light"
+  },
+  "LM_ground": {
+   "file": "lm_ground.jpg",
+   "scale": 0.47253,
+   "size": 2048,
+   "kind": "light"
+  },
+  "LM_context": {
+   "file": "lm_context.jpg",
+   "scale": 0.31447,
+   "size": 4096,
+   "kind": "colour"
+  },
+  "LM_roof": {
+   "file": "lm_roof.jpg",
+   "scale": 0.54374,
+   "size": 2048,
+   "kind": "light"
+  },
+  "LM_lawn": {
+   "file": "lm_lawn.jpg",
+   "scale": 0.51022,
+   "size": 2048,
+   "kind": "light"
+  },
+  "Beds": {
+   "file": "beds.jpg",
+   "scale": 0.15015,
+   "size": 1680,
+   "kind": "colour"
+  }
+ },
+ "frame": [
+  [
+   -33.198,
+   3.09,
+   -6.629
+  ],
+  [
+   -3.375,
+   25.33,
+   9.741
+  ]
+ ],
+ "dry": null,
+ "parts": [
+  "Building",
+  "GarageGate",
+  "Ground",
+  "GroundFill",
+  "HallBWindows",
+  "HallEnd",
+  "RoofB",
+  "RoofB_caps",
+  "RooftopPlant",
+  "SitePaving",
+  "SiteTerrain"
+ ],
+ "trees": {
+  "scale": 0.50553,
+  "objects": [
+   "Tree_00_T07",
+   "Tree_01_T04",
+   "Tree_02_T07",
+   "Tree_03_T04",
+   "Tree_04_T07",
+   "Tree_05_T04",
+   "Tree_06_T07",
+   "Tree_07_T04",
+   "Tree_08_T07",
+   "Tree_09_T04",
+   "Tree_10_T07",
+   "Tree_11_T02",
+   "Tree_12_T02",
+   "Tree_13_T02",
+   "Tree_14_T02",
+   "Tree_15_T04",
+   "Tree_16_T07",
+   "Tree_17_T04",
+   "Tree_18_T07",
+   "Tree_19_T04",
+   "Tree_20_T07",
+   "Tree_21_T04"
+  ]
+ },
+ "glass": [
+  "Glass"
+ ],
+ "sky": {
+  "file": "sky.jpg",
+  "scale": 1.55949
+ },
+ "people": [
+  {
+   "file": "people/572.png",
+   "p": [
+    -27.481,
+    -0.22,
+    26.806
+   ],
+   "h": 1.82,
+   "w": 0.615
+  },
+  {
+   "file": "people/771.png",
+   "p": [
+    -20.824,
+    -0.45,
+    31.117
+   ],
+   "h": 1.8,
+   "w": 0.601
+  },
+  {
+   "file": "people/440.png",
+   "p": [
+    -14.58,
+    -0.22,
+    27.191
+   ],
+   "h": 1.8,
+   "w": 0.596
+  },
+  {
+   "file": "people/287.png",
+   "p": [
+    -30.276,
+    -0.22,
+    26.184
+   ],
+   "h": 1.65,
+   "w": 0.538
+  },
+  {
+   "file": "people/465.png",
+   "p": [
+    18.116,
+    -0.22,
+    27.541
+   ],
+   "h": 1.7,
+   "w": 0.729
+  },
+  {
+   "file": "people/633.png",
+   "p": [
+    5.295,
+    -0.22,
+    27.743
+   ],
+   "h": 1.8,
+   "w": 0.614
+  },
+  {
+   "file": "people/1797.png",
+   "p": [
+    -18.076,
+    -0.012,
+    13.162
+   ],
+   "h": 1.7,
+   "w": 0.49
+  },
+  {
+   "file": "people/838.png",
+   "p": [
+    19.957,
+    -0.012,
+    13.425
+   ],
+   "h": 1.68,
+   "w": 0.58
+  },
+  {
+   "file": "people/95.png",
+   "p": [
+    27.197,
+    -0.012,
+    13.313
+   ],
+   "h": 1.8,
+   "w": 0.644
+  },
+  {
+   "file": "people/320.png",
+   "p": [
+    -27.256,
+    -0.042,
+    13.323
+   ],
+   "h": 1.78,
+   "w": 0.573
+  },
+  {
+   "file": "people/94.png",
+   "p": [
+    1.719,
+    -0.012,
+    13.087
+   ],
+   "h": 1.8,
+   "w": 0.61
+  },
+  {
+   "file": "people/801.png",
+   "p": [
+    23.469,
+    -0.012,
+    13.313
+   ],
+   "h": 1.8,
+   "w": 0.743
+  },
+  {
+   "file": "people/290.png",
+   "p": [
+    -15.639,
+    -0.22,
+    28.45
+   ],
+   "h": 1.72,
+   "w": 0.669
+  },
+  {
+   "file": "people/495.png",
+   "p": [
+    -18.413,
+    -0.45,
+    33.033
+   ],
+   "h": 1.8,
+   "w": 0.607
+  },
+  {
+   "file": "people/496.png",
+   "p": [
+    -15.444,
+    -0.012,
+    13.387
+   ],
+   "h": 1.82,
+   "w": 0.562
+  },
+  {
+   "file": "people/793.png",
+   "p": [
+    -0.546,
+    -0.012,
+    13.145
+   ],
+   "h": 1.8,
+   "w": 1.166
+  },
+  {
+   "file": "people/822.png",
+   "p": [
+    -15.102,
+    -0.235,
+    24.45
+   ],
+   "h": 1.72,
+   "w": 0.87
+  },
+  {
+   "file": "people/210.png",
+   "p": [
+    -30.301,
+    -0.235,
+    21.05
+   ],
+   "h": 1.75,
+   "w": 0.766
+  }
+ ]
+}
