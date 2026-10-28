@@ -322,18 +322,14 @@ function Detail({ p, me, onClose, reload }: { p: Point; me: Me; onClose: () => v
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0">
-        {p.still?.url ? (
-          <a href={p.walk_url} target="_blank" rel="noopener" className="block relative group bg-zm-dark" title="Otvoriť v 3D na tomto mieste">
+        {p.still?.url && (                               // the picture only enlarges; 3D opens from the one button below (Jano, 28 Oct)
+          <button onClick={() => setBig(p.still!.url!)} className="block w-full relative bg-zm-dark cursor-zoom-in" title="Zväčšiť">
             <img src={p.still.url} alt={`Pohľad v 3D – pripomienka ${p.n}`} className="w-full block" />
             {p.still.pin && p.still.pin[0] > 0.02 && p.still.pin[0] < 0.98 && p.still.pin[1] > 0.02 && p.still.pin[1] < 0.98 && (
               <span className="absolute w-8 h-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white font-bold text-sm flex items-center justify-center shadow-lg"
                 style={{ left: `${p.still.pin[0] * 100}%`, top: `${p.still.pin[1] * 100}%`, background: ST[p.status].bg, color: ST[p.status].fg }}>{p.n}</span>
             )}
-            <span className="absolute bottom-2 right-2 bg-zm-orange text-zm-ink text-xs font-bold px-3 py-1.5 rounded-lg shadow group-hover:bg-white">Otvoriť v 3D ↗</span>
-          </a>
-        ) : (
-          <div className="px-4 pt-4"><a href={p.walk_url} target="_blank" rel="noopener" className="inline-block bg-zm-orange text-zm-ink text-xs font-bold px-3 py-2 rounded-lg">
-            {p.view?.kind === 'exterior' ? 'Otvoriť 3D model budovy ↗' : 'Otvoriť v 3D ↗'}</a></div>
+          </button>
         )}
         <div className="px-4 pt-3 pb-1 flex flex-wrap gap-2 items-center">
           <a href={p.walk_url} target="_blank" rel="noopener" className="px-3 py-1.5 rounded-lg bg-zm-orange text-zm-ink text-xs font-bold hover:bg-zm-dark hover:text-white">
