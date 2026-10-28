@@ -14,7 +14,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { password, ...rest } = await req.json();
   const { ok, refused } = allowFields(rest, user.role === 'admin' ? ['display_name', 'role', 'email', 'phone', 'is_active'] : ['display_name', 'email', 'phone']);
   if (refused.length) return NextResponse.json({ error: `Nemáte oprávnenie meniť: ${refused.join(', ')}` }, { status: 403 });
-  if (self && (ok.role === 'agent' || ok.is_active === false)) return NextResponse.json({ error: 'Sám sebe rolu ani prístup nevezmete' }, { status: 400 });
+  if (self && ((ok.role && ok.role !== 'admin') || ok.is_active === false)) return NextResponse.json({ error: 'Sám sebe rolu ani prístup nevezmete' }, { status: 400 });
 
   const sb = getSupabaseAdmin();
   const { data: before } = await sb.from('admin_users').select('id, username, display_name, role, email, phone, is_active, approved_at').eq('id', id).single();
@@ -43,6 +43,8 @@ váš prístup do administrácie predaja Ziegermill bol schválený. Prihlásite
     log.push({ entity: 'user', entity_id: String(id), action: 'password', note: self ? 'vlastné heslo' : 'nastavené administrátorom' } as any);
   }
   if (ok.is_active === false) await sb.from('admin_sessions').delete().eq('user_id', id);
+  if (ok.is_active === false || (ok.role && ok.role !== 'architect' && before.role === 'architect'))   // the personal link goes with the access
+    await sb.from('review_links').update({ revoked_at: new Date().toISOString() }).eq('user_id', id).is('revoked_at', null);
   await logActivity(user, log);
   return NextResponse.json({ ok: true, relogin: !!password && self });
 }

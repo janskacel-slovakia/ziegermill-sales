@@ -3,7 +3,7 @@
 import React from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-export type Role = 'admin' | 'agent';
+export type Role = 'admin' | 'agent' | 'architect';
 export type User = { id: number; username: string; display_name: string; role: Role; email: string | null; phone: string | null };
 
 export type Unit = {

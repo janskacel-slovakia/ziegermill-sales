@@ -28,6 +28,8 @@ export async function POST(req: NextRequest) {
     }
 
     const user = data[0];
+    if (user.role === 'architect')     // the architect has only /review, through his personal link
+      return NextResponse.json({ error: 'Tento účet sa prihlasuje osobným odkazom na pripomienky (/review).' }, { status: 403 });
 
     // Create session token
     const token = crypto.randomBytes(48).toString('hex');

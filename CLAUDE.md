@@ -137,6 +137,32 @@ in `.claude\settings.json` as `{"permissions": {"additionalDirectories": ["C:\\U
     - filling the templates with the client's data (needs final templates with placeholders);
     - email sending (a mail service; the sender address is in `admin_users.email`, see Open items);
     - a reservation-expiry reminder.
+- Architect review `/review` (19 Oct 2026, Jano: the architect "can open the floor plans with comments and when he clicks the
+  number it will open on new tab 3D model on that particular place ... reply ... no complicated login"). For Juraj (Tesák).
+  - Page: `app/review/page.tsx`. It shows the tender sheets with the Studio's numbered points. A point shows its still, its text,
+    the thread, a status and a reply box (photos: paste or upload). "Otvoriť v 3D" opens the published walkthrough with
+    walks-studio's `?nv=` link (`app/lib/review.ts` `walkUrl`).
+  - Statuses: open → answered (architect) → agreed → done. The architect may set answered / agreed; Jano may set any.
+  - Role `architect` (migration `20261019120000_architect_review.sql`): only `/api/review/*`. `requireUser()` refuses it
+    everywhere in `/api/admin`; `requireReviewer()` lets in admin (`admin_token`) or architect (`review_token`).
+  - Personal link: `/review#k=<96 hex>`, valid 90 days, no password.
+    - The token is in the fragment, so it never reaches a server log. The page posts it to `/api/review/login`, which starts a
+      session in cookie `review_token` (SameSite Lax).
+    - Jano issues, copies or revokes it in Používatelia → the architect's row → "Osobný odkaz" (`/api/admin/users/[id]/link`).
+  - Data: `review_points` (id = the Studio's point id), `review_messages` (by = user | claude | architect, `studio_key` for
+    entries made in the Studio), `review_links`, private bucket `review` (stills/, sheets/, photos/).
+  - Emails go through `notify()` only once mail is configured. They never carry the link.
+  - Studio sync: `flats\_architect\review_sync.py`, two-way, key `REVIEW_SYNC_KEY` (`.env.local` and `flats\.review.env`;
+    Vercel needs it too), endpoints `/api/review/sync` and `/sync/upload`.
+    - Up: the points and their views and stills. Down: replies and statuses into `notes.json` (`thread`, `status`,
+      `status_at`, `photos` in `_architect\photos\`). An architect reply on a point taken from a Studio note goes into
+      that note's thread too.
+  - Views: `flats\_architect\review_views.py` → `review_views.json`. A linked Studio note ("BYT 01 #45") gives the
+    view; otherwise the walk grid does (camera 1.5-4 m away, clear line).
+  - Stills: `review_stills.mjs [nv]` → `stills\` (headless Edge on `_export`).
+  - Hall B's points (20-22) open the 3D selector: there is no published exterior view.
+  - Tested 19 Oct with temporary users (zz-test-review-admin, zz-test-architect): now blocked, their messages hidden.
+    To delete: `supabase/run_cleanup_review_test.sql`.
 - `/api/units` is the public JSON of the units: `id, name, unit_type, floor_number, rooms, interior_area, exterior_area,
   exterior_type, orientation, price, price_per_m2, status (available|reserved|sold)`: since 9 Oct the 37 real units
   (A01-A34, B01-B03); the old placeholders 2A-6B are hidden (is_public false, status unavailable).
@@ -170,6 +196,14 @@ Size is about 14 MB per walkthrough and 1 MB for the selector.
   themselves (walker.html, once re-exported). Both back buttons keep `location.search` and translate their own label.
   The home page takes `?lang=` over its IP-based guess.
 
+- 13 Oct: **flat bakes now go to Cloudflare R2, not git.** A flat line with "After bake commit & push" is exported
+  (`export_web.py`) and uploaded with `r2publish.py <flat>` (bakepanel `_r2_publish`, in `flats\_publish\.venv`) to
+  `3d.ziegermill.sk/walk/<flat>/`, which also refreshes the selector's `walks.json`. The selector's light
+  (`selector-bake`) goes the same way. The git route below (sitepublish.py) is now used only for an exterior target that the
+  website repo carries, and there is none today. Needs one Studio restart to take effect.
+- 14 Oct: `r2publish.py` also puts `plates.json` next to every walkthrough (the TVs' and door plates' price, areas, rooms,
+  orientation, levels; the Studio serves the same live as `/api/plates` from `cennik.sql`). Before, production's TVs showed
+  only the logo and number. After a new price list, run `python flats\r2publish.py --all` (only plates.json changes).
 - From the Studio (9 Oct, Jano): each line of the bake queue window has "After bake commit & push".
   - When a line finishes with it ticked, `bakepanel.py` publishes it. The same happens when it is ticked afterwards,
     or Retried. Lines waiting at the same time go up in one commit.
@@ -204,6 +238,26 @@ Size is about 14 MB per walkthrough and 1 MB for the selector.
 
 ## Blender pipeline (`flats\`)
 
+**Since 20 Oct 2026 Zieger Mill runs in the common Walks Studio** (Jano: "go ahead with both switches"; plan
+side-session-notes\local_1029c5d2-...\walks-engine-plan.md):
+- The Studio program (bakepanel.py, walker.html, studio.html, bake_flat.py, post_flat.py, build_flat.py, build_ifc_flat.py,
+  furnish_flat.py, flatlib.py, flatfurn.py, export_web.py, run_pipeline.ps1 ...) lives ONLY in
+  `C:\Users\PC1\Documents\walks_engine` (local git, owned by the walks-engine session; README.md, CHANGES.md there). Engine
+  changes go to that session; it makes them once for every project (Mudroňova runs in the same Studio). Where this file
+  below names `flats\<engine file>`, read `walks_engine\<engine file>`.
+- `blender_scene\` is the project folder: `Zieger Mill.walks` (the project file: port 8790, brand, features, paths,
+  publish), `hooks.py` (publishing: r2publish.py / sitepublish.py as before), `brand\` (Google Sans + the logo for the TV
+  screens and door plates). The flats, notes, params, recipes, bakes and exports stay in `flats\` (output_dir flats).
+- ZM's old engine copies are in `flats\_engine_old\` (rollback only - never run or import them). `studio\plans\` is
+  now `flats\_plans\`. The build_ / furnish_ / pano_ wrappers run the engine's recipes (`ENGINE = WALKS_ENGINE or
+  walks_engine`); the standalone furnish_<flat>.py start with the engine's bootstrap; the gen_*.py write wrappers that way.
+- Start: `blender_scene\Studio.cmd` or `Studio app.cmd` (one Studio program for both projects, each on its own port -
+  8790 Zieger Mill, 8791 Mudroňova - with ONE bake queue for the computer; the other project's lines show greyed).
+- Scripts started by hand find the project upwards from where they run (the .walks file) or from `WALKS_PROJECT`; trial
+  builds: `WALKS_BUILD_OUT` / `WALKS_FURN_OUT` (the old `ZM_BUILD_OUT` / `ZM_FURN_OUT` still work).
+- The exterior's scripts (bake_exterior.py, extsurround.py, extbake.py, ext_*.py, panorama_build.py) and the publishing
+  scripts stay in `flats\` (they are Zieger Mill's); the selector session's files were not touched.
+
 Each flat has:
 
 - `<flat>_params.py`: geometry, doors, devices etc. Driven by the notes.
@@ -219,8 +273,69 @@ Running things:
 - `run_flat.ps1 -flat X -what build|furn|all` does the model steps without baking.
 - `run_pipeline.ps1 -flat X` runs build → furnish → bake → post → export. This is Jano's bake; started from the studio.
 - `export_web.py flat=X` writes `flats\_export\X\` and `X_walk.zip`. The page template is `flats\studio\walker.html`
-  (mobile controls: left thumb walks, right half looks; A32 ⇄ A25 switch).
+  (mobile controls: left thumb walks, right half looks). The A32 ⇄ A25 switch top right is off since 13 Oct
+  (Jano: remove it from production; `export_web.py` `SWITCH = []`).
 - Previews (no bake): `preview_flat.py -- flat=X quality=quick views=<json> pv=<dir>`.
+- Live gloss (14 Oct, Jano: wood "like from 2005 video game", "no reflective surfaces"; then "make gloss default ... no
+  button"): `gloss_flat.py` (blender -b <flat>\bake\bake_scene.blend --python gloss_flat.py -- flat=X; reads, never saves;
+  ~8 min on CPU, less on the GPU) writes `<flat>\web\gloss\`: gloss.glb (the B_<group> meshes + normals, split by gloss class
+  from material names: floor, wood, satin, ceramic, tile, blackgloss, screen, metal, mirror, leather, art, plastic, matte),
+  probe_<i>.jpg (360° renders from flat.json's places + EXTRA rooms, box-projected), the wood's normal / roughness / diffuse
+  maps at 1K, mirrors' rectangles, gloss.json (per class F0 / roughness / strength / detail - editable without Blender).
+  walker.html loads gloss\gloss_glb.wasm instead of flat_glb.wasm when gloss\gloss.json exists (no button): baked picture +
+  Fresnel x probe, wood grain detail + relief, glass and the TV picture reflect, mirrors are three.js Reflectors.
+  A gloss belongs to one bake: bakepanel `gloss_stale` (web\flat.glb newer) -> 404 for gloss\ (plain bake), `gloss_soon` after
+  each bake, `gloss_run` before a publish; export_web.py copies gloss\ only when fresh. A32 done; other flats: run it once.
+  14 Oct evening: walker.html reads the baked picture with a B-spline (bicubic) filter where a light-map pixel is bigger
+  than a screen pixel (`smoothBake`; Jano: "low resolution squares" close up); room probes blend over the last 30 cm of
+  overlapping boxes, smaller rooms first (A32 note 167: a hard line where the entrance's box ended on the worktop). In the
+  Studio `window.__walk` = { player, camera, smooth (gSmooth 0 = plain read, for comparing), scene }.
+- Notes deleted in the Studio stay on disk as `{"deleted": true}` tombstones: skip them when scanning `<flat>\notes\`.
+- Website common areas (15 Oct, Jano: "make published version ... common spaces walkable"): export_web.py writes a flat's
+  entrance door into its flat.json as `exit` (bakepanel.exits), so on the website that door opens
+  `../common/index.html?at=<flat>`; the common export carries `plates.json` (bakepanel.plates, price list at export time -
+  re-export common after price changes); door links use `../<flat>/index.html` (R2 has no folder index: `/walk/a32/` is 404).
+  The selector's way in (a button to /walk/common/index.html) is the selector session's.
+- Trial builds (no bake, nothing real overwritten): `ZM_BUILD_OUT=<dir>` for `build_<flat>.py`, `ZM_FURN_OUT=<dir>` for
+  `furnish_<flat>.py`; the bake pipeline rebuilds and refurnishes anyway, so params / script changes show at the next bake.
+- Added 13 Oct (notes rounds): `flatmezz.build_L` - an L stair with winders for the IFC ateliers' timber mezzanines
+  (MEZZ["stair"]["L"] = dict(low_n, low_going, winders); A29), no guard; `furnish_ifc_min.py` reads `WARDROBES` /
+  `BEDS` from the params (A29); BYT 01's params have `FANS`, `ACS`, `HALL_TILES`, a 5th "sw2" (double switch) on
+  `SWITCHES`; A32-only overrides in `a32_devices.py` (`ACS`, `VENT_AT`, `FANS`, `TOWEL_RAILS`, `PLANTS_AT`, `CEIL_BOXES` (lowered ceiling / bulkheads hiding the services' ducts, note 169),
+`WARDROBE_H`) read by `furnish_flat.py`. Services geometry that needs a ceiling or lining must have it built in the flat too.
+- Formwork concrete panels (A01 note 12, 15 Oct: "keep always the same size as in A32. In all flats"): 1.15 x 2.75 m everywhere,
+  `flatmats.BOARD_PH` via `FM.board_ph(P)` (was half the storey: 1.30 m on 2NP/3NP, 2.575 on 4NP/5NP; A32-A34, BYT unchanged).
+  Every build / furnish script - also a standalone `furnish_<flat>.py` - passes `FM.board_ph(P)`, never `(ZC - Z0) / 2`. The
+  common areas' 1.465 m (build_ifc_flat.py CONC) is not a flat's and was left.
+- A01 round 1 (15 Oct): `furnish_a01.py` is standalone (as A11 / A34); a two-seat sofa from S01 (cut + mirrored, `sofa2_prep`),
+  an oak slat floor-to-ceiling room separator with planters (built in the script).
+- A02 round 1 (17 Oct, notes 1-4): `furnish_a02.py` is standalone (was furnish_ifc_min). A33's east wall (tall units, grey counter, TV sideboard + TV, planters) is built as furnish_flat.py builds A32's on u 0 and then mirrored at object level about the centre line (as flatmirror.py; bake flips negative-determinant normals) - A02's east wall has A33's 44 cm corner pier, so A33's v values apply as they are. Bed on the bathroom block's south face, A01's sofa2 + coffee table on the west wall facing the TV, A01's LIGHTS mirrored (u -> 4.73 - u, ADJ_SPOTS). a02_params TV = None.
+- 17 Oct evening notes: A01 43-49 (KITCHEN_REST_AT window + KITCHEN_REST_KIND door; kitchen2 wall dict single_to = one wall-cabinet door up to that width; TV_UNIT sideboard v range; PLANTS only P02 on the south pier; SEP_PLANT_ON_SOIL), A02 5 (SEPARATOR = (free end u, wall end u, v), mirrored when the wall is west), A10 11 (DESK in the south room corner), A11 8 (SOFA + COFFEE as A01), A32 176/181 (mep_model: ETA4 gone, ETA3 120 m3/h as a wall grille over bathroom 1 door, COWL over the riser shaft COWL_AT, EHA straight east; a32_devices: hall bulkhead removed, VENT_MORE grilles drawn by furnish_flat). A01 44 open: the swapped 3.01 m sofa does not fit between the separator and the south wall (2.60 m).
+- Live sun (17 Oct, Jano: "try option #1 ... keep option to switch back ... alternative bake per flat + sun gizmo. Let's try on A32"): `flats\sunfree_bake.py` re-bakes ONLY the irradiance pass of `<flat>\bake\bake_scene.blend` with the sun hidden (fresh copies of the original materials - bake_flat's alpha pass leaves furn/plants wired to emission and sheer opaque), into `<flat>\bake_sunfree\`, never saving over the bake scene; `sunfree_post.py` denoises it like post_flat and writes `<flat>\web\sunfree\` (sf_<g>_lin.jpg log-encoded linear light x colour + emission, sf_<g>_alb.jpg, sf_<g>_nrm.jpg, sunfree.json with bounce_ref = median(normal irr / sun-free irr) - 1 and glb_bytes). Walker (Studio only): Sun button -> sun-path dome gizmo with a calendar ring round it (Jano: no half-year switch): drag the ring = the day (Dec wraps to Jan), drag in the dome = the time (the sun slides along that day's arc), wheel = the day, Baked light / Live sun; live = sun-free light toned in-page (agx_lut) + direct sun strength x colour / pi (measured: the bake's light is strength x cos / pi) with a 4096 shadow map + bounce scaled by the flat's glass area the sun reaches vs the baked sun. The sun is also in the sky (Live sun only): a disc + halo sprite 250 m out along the sun (inside the sky sphere, so walls, frames and nearby buildings hide it), and a screen-blended glare quad whose strength = the share of the disc the eye sees (a 32 px magenta probe render 12x a second; sheer curtains dim it) x how straight you look at it; the same quad draws a lens flare (6 ghosts on the sun-centre line, rainbow ring, starburst, streak) from ~50 deg off the sun. Default (Jano 17 Oct: "use it as a default for all flats"): the walker opens in Live sun once the flat is loaded when its sun-free bake is current (?light=baked forces the bake). Since 17 Oct evening (Jano: "any new bake I do in the studio from now on will automatically be sun-free") run_pipeline.ps1 runs SunFree after post: sunfree_bake.py auto=1 progress=1 (the groups this bake changed; reused groups keep their sun-free map when its source sig matches) + sunfree_post.py, steps sunfree.<g> / sunfree.post in the bake panel (flatprogress.plan_stages), a failure only logged; off with studio_prefs.json sunfree_after_bake false. The queue was stopped (only A03 and A32 have sun-free bakes from before). 19 Oct (Jano: "don't bake in background. I will bake on my own in the studio"): no sunfree_queue.py runs - sun-free maps come only from his Studio bakes. flats\sunfree_queue.py does every flat: one group per Blender run, waiting before each while run_pipeline.ps1 / bake_flat.py / post_flat.py run, resumes groups already baked from the current bake, then sunfree_post; status _sunfree_queue.json, log _sunfree_queue.log; runs once through the list (re-run after re-bakes). Live sun is disabled if flat.glb's size changed (re-bake -> re-run both scripts). 18 Oct: (1) the sky HDRI (kloofendal puresky) has its own sun (~48 deg up, fixed direction, E ~4.35 = as strong as the Sun lamp, about half the sky light): every bake had two suns. sunfree_bake.py clips the world environment at 10 (flatlib.sky_without_sun), records sky {dir, E, alt} in sunfree_meta/sunfree.json; the walker splits bounce_ref between the lamp and the sky sun by their lit glass. sunfree_queue.py treats a sunfree.json without sky as stale. (2) Sun panel: no Baked light / Live sun / The baked sun buttons - Live sun is simply on where current; Set as start writes <flat>/web/sunfree/start.json {day, H} via POST /api/sunstart (bakepanel - needs a Studio restart), the walker reads it at load. (3) Live sun + the outside: the street model loading after Live sun replaced the ctx strip's shader (white facade/railing) - loadOutside now clips the baked material (sunOf) and the sun material clips itself (keepMin/keepMax). (4) sofa2_prep: bmesh.ops.mirror keeps the winding, the mirrored half faced inwards (black in the bake) - reverse_faces on the mirror result (A01, A02, A11). Found while building it: in bake_flat.py the groups baked after furn's alpha pass (win, relief, sheer) bake with the furniture glowing white (A32: relief +26 %, sheer +41 %, win +4 %) - reported to Jano, not fixed (his script) - fixed 19 Oct with the sun-off change (bake_flat relinks each material's own shader after the alpha pass).
+- Live sun on the website (19 Oct, Jano: "yes, live sun on the website"): sunUI runs on the published walkthroughs too - a round
+  Sun button (#sunChip, under Measure; the Studio keeps its toolbar Sun), the panel in the visitor's language (sk/en, ST texts),
+  no Set as start, no technical notes; phones (touch) load sf_<g>_*_m.jpg (half size, sunfree_post.py writes them from now on)
+  and use a 2048 shadow map with 3x3 PCF (desktop 4096, 5x5); the shadows are drawn again only when the sun moves (the Studio
+  also every 3 s). export_web.py copies web\sunfree\ + agx_lut.json only when sunfree.json is from this bake (glb_bytes) and
+  has no sun of its own (sky clipped or sun_off) - else the page shows the bake; it warns when a sun-off bake has no sun-free maps.
+  On 19 Oct only A11's maps qualify (the others' were made before the sky clip): the rest get Live sun with Jano's next bakes.
+  Publishing (re-export + r2publish.py) is Jano's call.
+- Studio layers (19 Oct, Jano: "our studio needs turning on/off layers ... We definitely need to be able to turn on/off furniture"):
+  walker.html layersUI, Studio only - Layers in the toolbar: Furniture (furn + moved), Plants, Curtains (sheer), Windows and doors
+  (win + glass), Outside (ctx + the street model), Services (the x-ray). A hidden part is out of pickables (notes, swap, measure)
+  and its earlier visibility is kept (userData.layVis); remembered in localStorage layers.off. Baked shadows of hidden furniture
+  stay in the light maps.
+- Ported from the Mudroňova Studio (19 Oct, its port_note_mudronova_to_ZM_19oct.md): bakepanel _params cached per params
+  file mtime (+ params-warm thread: quick swap / queue clicks); moves keep prev, Undo re-activates it; the walker's moveUI
+  starts a piece from its baked move (no jump); gloss_flat.py lod / lm_texel per textured class, 2K colour, class deck, out=;
+  the walker's grain detail in colour against the texture blurred to gLod; run_pipeline.ps1 Gloss (gloss_flat.py) as the
+  last stage before ExportWeb (flatprogress "gloss"); the live-sun shadow map fitted to SF.box + 25 m (near 80 m up-sun);
+  bake_flat.py SMOOTH_BENDS (20 deg, shell + ctx shaded smooth; 0 = off) and post_flat.py stitch_seams() (STITCH_SEAMS = False
+  = off; on A32's shell it finds nothing to stitch); flatfurn.load_asset takes thick curves as meshes; furnswap prep flip_z
+  (catalog item "prep", passed on by furncat).
+- Swap preview (19 Oct, from the Mudroňova Studio): showGhost turns the candidate as furnswap.py does (its own width across, depth
+  along; WIDE_CATS quarter turn at 1.3x) - before, a bed only 14.7 % deeper than wide showed turned 90 degrees.
+- Bakes without the sun (19 Oct, Jano: "all the bakes from now on are baked without sun. Sun is added later and is realtime based on sun wheel"): bake_flat.py hides the Sun lamp and clips the sky photo's own sun (flatlib.sky_without_sun) unless studio_prefs.json "bake_sun": true, and writes <flat>\bake\bake_sun.json {sun_off, sun (the lamp's dir/strength/colour: the Live sun's reference), sky}; the first sun-off bake reuses no group baked with the sun. run_pipeline.ps1 SunFree then skips sunfree_bake.py (the bake IS the sun-free light) and runs sunfree_post.py straight on <flat>\bake (denoise to *_sfdn.exr, not post_flat's *_bdn4.exr; an old bake_sunfree\sunfree_meta.json is removed so it can't win); flatprogress shows only sunfree.post. With no sunny bake to compare, sunfree.json has sun_off true, bounce_ref null, esky (mean shell sky light over cov & albedo > 0.05) and aroom (2 UW VF + 2 (UW+VF)(ZC-Z0)); the walker's bounce = 0.35 x (strength x k / pi) x lit glass / (aroom x esky) - 0.35 matched to A32's measured bounce (esky 0.0848, aroom 216.9). So the normal web lightmaps (and ?light=baked) are sunless from now on, and the public website (no Live sun yet) shows flats without sun once re-baked/exported. Never bake in the background (Jano 19 Oct): flats get this when he bakes them in the Studio.
 - Studio: `Studio.cmd` starts `bakepanel.py` on http://127.0.0.1:8790, local only (it runs hidden; starting
   `Studio.cmd` again replaces an older running copy).
 - IFC flats' windows (10 Oct, A34 note 5 "the handle can't be on the glass. And I guess only one side will be openable";
@@ -251,6 +366,51 @@ Running things:
   - D14's leaf turns whole (`OPEN_DOORS` with the leaf range); before, its stiles stayed standing.
   - The garage (1.PP) is a view-only volume behind door D26, with 8 lights.
   - Lifts and railings are brushed stainless (a node albedo), because the plain light-grey chrome baked as white paint.
+  - 15 Oct (round 5, notes 28-35):
+    - The flats' wooden front doors (leaf and frame) are in the flats' entrance-door finish `M_I_DoorEntrance`, the dark
+      grey of furnish_flat's door unit inside (`build_ifc_flat.py`, common only).
+    - Lifts: two leaves with a 10 mm joint per door. `furnish_common.py` adds, from `LIFT_*` in the params, on every stop:
+      the rubber joint, a black floor display over each door (-1 basement, 1 ground, 2-6, Google Sans in brand orange) and
+      a call panel on the pier between the lifts.
+    - View-only volumes (not walked): the ground floor's double-height rooms 1.04 / 1.05 behind the 2nd-floor lobby's
+      windows, the ground floor's south half behind them, and the basement corridor -1.04 behind D27.
+    - Concrete fills (`FILLS`) close the trenches at window sills and door reveals. `scan_common.py` passes 2-3 write
+      `common\patches2.json` (`ZM_SCAN_OUT`); a new pass into patches.json would drop the first pass's patches.
+  - 15 Oct (round 6, notes 36-37): the garage is walkable.
+    - D26 (double), D27 and D28 (solid) stand open. `OPEN_DOORS` takes a 5th item, the leaf's depth band, for doors
+      without glass.
+    - The whole basement is in volumes up to -0.30. Over the bands, -1.04 and -1.06 the ceiling is the ground floor slab
+      (-0.48); only the courtyard part has the -1.10 slab.
+    - Also in: the car ramp's first leg, seen only.
+    - A "Garage" place.
+  - 15 Oct (round 7, notes 38-42):
+    - Only D26's east leaf is open (`how` "double_r"; "double_l" also exists).
+    - The garage under SO 01B (-1.07, spaces 28-42) is walked to its stair room. `SO01B_EXTRA` adds the columns and end
+      wall the IFC lacks there.
+    - Seen only: stair room 2.06 behind D18 and SO 01B's hall to x 42.6 (as far as the IFC roofs it).
+    - The roof round the housing is in, walkable through the open D35.
+    - `WALK_BOX` x -8.7..70.9, y 0.2..28.9, about 10x the old walk grid.
+  - 16 Oct (round 8, notes 44-47):
+    - SO 01B's hall is in whole. `SO01B_EXTRA` adds its end wall and a flat roof past x 42.55; the IFC has neither.
+    - The garage ramp: the IFC has only the OM01 retaining walls. `RAMP` in the params holds the cross-sections (from those
+      walls, T-10.01). `furnish_common.py` builds a 20 cm concrete slab, -3.65 to -0.10, about 20 %, walkable.
+    - The tender has no transport or signage part. The garage door DB is not in the IFC.
+    - The corridor's three infilled openings are on the architect sheet (point 30).
+  - 17 Oct (round 9, notes 48-52):
+    - The railings (kind "rail") are black matte paint, `M_C_RailBlackMatte` (gloss: satin). The tender leaves the colour open
+      (E.20). The lift doors' boxes take the lift frame's finish (HYDRANT `|43330|` -> `M_C_LiftSteel`), not a railing part's.
+      The roof housing's "Ocel - konstrukční" posts are not rails: they keep `M_C_Chrome`.
+    - `OPEN_DOORS` "double*": faces spanning the door's middle (the frame head's stop) stay in the frame. Before, a 1.9 m sliver
+      stuck out at D21's head.
+    - A narrow patch face (4.5 cm, 5 m tall) can bake dark (texels rebuilt from other islands). Cover it with a wide 2 mm skin
+      (`SKIN51`, 4th floor west wall).
+    - Corridor windows O28 (4NP) / O33 (5NP) run past the slab of the flat's mezzanine over the corridor, leaving an open slot.
+      It is on the architect sheet (point 31).
+- IFC flats' entrance door (Jano 15 Oct, "Front doors - keep gray"): the `IFC_KEEP` door gets kind `door_ent`, so its
+  wooden leaf and frame are `M_I_DoorEntrance` in the shell and the context (`build_ifc_flat.py`).
+  - Applies to A01-A22 (not A10), A28-A31, A34.
+  - A19: the IFC puts its door (|70635|) a floor too high. `a19_params.py` has `IFC_MOVE` -5.48 m, `IFC_KEEP` and
+    `OPENINGS` (the 4th floor wall had no opening, so before that a white wall stood in front of the moved door).
 - Architect tab (Jano, 10 Oct: "non-PDF version in the Studio where I can update, add, remove the comments and then when
   final, export it to PDF"): `studio\architect.html` at `/architect`.
   - Every floor plan sheet of the drawing set, cut as in the PDF (`_architect\sheet\*.png` and `pages.json`, made by
@@ -298,6 +458,14 @@ Running things:
     - trees lit per vertex.
     - beds.jpg: the planting seen from above.
     - sky.jpg.
+    - Publishing (13 Oct, Jano: "yes"): extbake.ON_WEBSITE["selector"] = True - a 3D selector line with "After bake commit
+      & push" goes to R2 (`r2publish.py selector-bake` -> walk/selector-bake/ on 3d.ziegermill.sk; bakepanel `_r2_publish`),
+      not the website repo. r2publish needs boto3: bakepanel runs it with `flats\_publish\.venv\Scripts\python.exe` when that
+      exists, else its own Python (which has no boto3 - the publish then fails with that message).
+    - The master parts baked are named in bake_exterior.py GROUPS; exterior.json "parts" lists them (13 Oct). A new part
+      of zm_master.py's building.glb must be added there, or a page that draws the bake instead of the model (the selector's
+      version B) loses it - as HallBWindows, GroundFill and SiteMarks were (Jano, 13 Oct). SiteMarks stays live on purpose
+      (paint on asphalt would go as a stacked face).
     - people\ cut-outs.
     - exterior.json.
     Test without baking: `-- dry=1 out=<dir>`, plus `shots=<dir>` for three quick renders.
@@ -355,6 +523,43 @@ Running things:
     `data.thread` = [{by: "claude" | "user", text, at, round}]; `data.reply` stays Claude's latest answer and is shown
     after the thread while it isn't in it. Jano's reply sets status open. A note whose last entry is by "user" waits for
     an answer: answer with the same PATCH {reply, round, status} - the Studio server keeps the replaced reply in the thread.
+  - Note tools, shared (19 Oct, Jano: "architect should be able to reply to my comments - we should implement new notes
+    functionality (arrows, lines, pasting pictures, etc.) from Mudronova Session"): `flats\studio\notetools.js` (ES module,
+    importmap "zm-notes" -> /studio/notetools.js; export_web.py rewrites it to ./notetools.js and copies the file).
+    walker.html and exterior.html build their whole notes UI with `NT.createNotes(host)` (host = camera/picking/go-to-view);
+    selnotes.js shows marks, photos and architect replies read only. Format (also for the architect review page /review on
+    C:\ZM-WEB, session architect-review): data.marks [{k B.., type pin|arrow|line|poly, pos | a,b | pts, len, area, text, snap,
+    reply?}], data.photos [{file <id>_ph<k>.jpg, at, url?}], data.still {file <id>_still.jpg, w, h}, thread[].by 'architect' (+name),
+    thread entries' marks/photos lists. Deep links: ?note=<id> (Studio), ?nv=<base64url {v,flat,id,n,text,pos,cam,marks}>
+    (anywhere, read only), &still=1 (&w=) -> window.__noteStill + postMessage {zmNoteStill}, saved as data.still in the Studio.
+    Also #zmr= / #nv= (the same JSON in the fragment, + label, title), walker ?cam=x,z,feet,yaw,pitch (host.camKeys), and
+    window.__walk = {ready, shot(w)} for architect-review's headless stills.
+    Each listed note has Copy link (the website ?nv= link). bakepanel: POST /api/note-photo | note-photo-remove | note-still
+    (nflat: flats and exterior), GET /note-photo/<flat>/<file> - these need a Studio restart. The marks header row is .mrow
+    (timetrack.js puts its picker above the panel's first .row). Interface note for architect-review:
+    side-session-notes\local_137a1f48...\walks-studio_note_tools_interface.md. Mudroňova gets every Studio feature too (Jano 19 Oct:
+    "both studios should be synchronized"): port note port_note_notetools_from_ZM.md in its notes folder.
+  - Time log (18 Oct, Jano: "Can't studio help me tracking where do I spend my time?" - to bill IFC errors and client
+    changes when the Studio becomes a service). Local only, nothing is sent anywhere. Needs one Studio restart.
+    - Heartbeat: bakepanel adds `studio\timetrack.js` to every page it serves (shell, walker, exterior, architect, bake,
+      plans, flats, the live selector; never the published walkthroughs). The top window posts `POST /api/activity`
+      {flat | exterior | selector | architect, tab, kind, note} every 30 s while visible + focused + used within 2 min;
+      framed pages only tell the top window (no double counting). `timelog.py` appends to `flats\_timelog.jsonl`
+      (t, flat, tab, kind, note, cat, client = studio app / browser / phone).
+    - Counting: beats < 5 min apart are one session; the gap goes to the earlier beat. Category = the note being written or
+      read (focus in a list item, the new-note panel, the highlighted note), else Architect tab = ifc_error, else the tab.
+    - Note categories: `data.category` = design (default when missing) | ifc_error | client_change | studio_bug | other.
+      Picker in the new-note panel and on each note in walker.html / exterior.html / selnotes.js (only where
+      `window.zmCat` exists, i.e. in the Studio). Claude can set it with the same notes PATCH `{category}`; the Time view
+      reads categories fresh, so past time moves with a later change. A category PATCH keeps `done_at`.
+    - Time tab (interior, `studio\time.html`, `GET /api/time?from&to&est`): per day / week / flat / category, flat ×
+      category, notes with the most time, sessions; "IFC errors · evidence" (ifc_error notes with Claude's rounds + the
+      architect sheet's points) and "Possibly IFC errors" (uncategorised notes mentioning the IFC / architect, one-click
+      category). CSV: `/api/time.csv` (; separated, decimal comma) and `?what=evidence`; in the Studio app's window (no
+      downloads) `POST /api/time/export` saves it to Downloads.
+    - Estimate (hatched, "estimate" in the CSV) for the time before the first beat: sittings from the notes' created /
+      edited / your replies' times (gap ≤ 20 min, +5 min lead, +2 min tail), bake starts only inside a sitting (queued
+      bakes start much later than the click), the architect sheet editor's points 10 min each. About 29 h for 4-18 Oct.
   - Furniture swaps (8 Oct): the walker's "Swap" button (studio only). Library `furnlib.py` (thumbnails
     `furnlib\thumbs\` by `furnlib_thumbs.py`); slot id = the furnish's object name (A32_Sofa ...). Requests in
     `flats\<flat>\notes\_swaps.json`; every furnish build applies the active ones (`furnswap.py`, called from
@@ -436,6 +641,156 @@ Running things:
   walks, the other views fly. Rays use three-mesh-bvh 0.8.3 (jsdelivr); without it, three.js's own rays (slower).
 - Exterior swaps (Jano, 10 Oct: "add swap object functionality also to exterior, e.g. replace cars"). In the 3D walk
   bake's view, Swap → click a car, a street tree or a lamp → pick another one.
+  - One shared surroundings model (16 Oct, Jano: "always use same models for all views ... it should move it everywhere"):
+    `ext_surround_export.py` builds them exactly as the 3D walk bake does (`extsurround.build(parts=True)`: same seed,
+    same swaps) and writes `flats\_export\selector\surround.glb` (Draco, page y-up like building.glb, ~4 MB; top-level
+    groups Street, Neighbours, FarBlocks, Trees_street_1, Trees_street_2, Trees_lawn, Lamps, Cars; the trees share one
+    mesh per kind, textures <= 1024 px) + `surround.json` (groups, each lamp's lens point, the swaps). The Studio re-runs it
+    5 s after every exterior swap change (`bakepanel.surround_soon`). After changing extsurround.py's layout (a note that
+    moves a lamp, a tree, a car), run it by hand: `blender -b --factory-startup --python ext_surround_export.py`. The
+    selector session loads it in the selector's views (its night view's lamps).
+  - The street is the 2025 easements plan's (17 Oct, Jano: "why can't you just draw the cycle path and all the streets
+    according to this picture?"). extsurround `street()` draws `flats\_ref\panorama\plan_streets.json` (the selector
+    session's trace: road / cycle / walk / grass shapes, model metres, later on top) in `STREET_EXT` (x -64..150, y -31..-12).
+    - The road is at the model's level (-0.36, in the model's own `S_asphalt`). Cycle path, sidewalk and grass sit at
+      -0.235 / -0.22 / -0.25 with walls down.
+    - The plan's gaps are filled: narrow ones (up to 1.2 m) as kerb concrete at -0.21, wide ones as grass at -0.30.
+    - Nothing is drawn where the site model has a surface (a BVH of SitePaving / SiteTerrain / GroundFill).
+    - Dashed centre lines run on the road (outside the model's road) and on the cycle path.
+    - `Plan.section(x)` gives the road, cycle and walk bands at any x. It places the street tree row (between road and
+      cycle path), the cars (on the plan road's lanes, turned along it), and the people and cyclists (on the plan's
+      sidewalk and cycle path).
+    - The old strips (`street_old`) and the street planting bed (`BED_GONE`) are gone. Bed 0 still draws its random
+      numbers.
+    - `STREET_EXT` goes to surround.json as `street_ext`. The panorama keeps its ground and roads below it there
+      (selector session).
+    - Anything added to the layout draws its own random numbers, so the existing trees, cars, people and swap slots
+      keep their places. The extension's 7 street trees use `Random(1201)`, its bed plants `Random(1202 + bed)`.
+    - A far block that reaches the street is cut back after its random draws.
+  - The invented neighbours are gone (17 Oct, Jano: "replace the 3D walk's invented neighbours with the real planned
+    buildings").
+    - extsurround no longer builds the block across the street, the glass tower, the brick block or the background
+      blocks. The background blocks are drawn and dropped, so the random layout stays the same. `ZM_EXT_NEIGHBOURS=1`
+      brings them back.
+    - The panorama's `Planned` and `Buildings_low` stand there instead. exterior.html and walker.html show them only
+      when the walk bake's `LM_context` is under 15 m high; an older bake still holds the 106 m tower.
+    - surround.glb no longer has the Neighbours and FarBlocks groups.
+- Night selector interiors: `flats\interiors_export.py` writes `_export\selector\interiors.glb` and `interiors.json` (16 Oct, Jano: "it
+  should look like real interiors, only made much simpler ... stairs, mezzanines, furniture roughly visible").
+  - Source: each flat's `<flat>_furn.blend`, read only.
+  - What it keeps (17 Oct round, Jano: "this is not rough furniture. This is some nonsense inside"):
+    - The shell: merged flat faces. No glass, railing bars, transom boxes (`SKIP_ARCH`), or wall faces that look straight
+      at a window pane within 30 cm.
+    - Furniture only by `KEEP_PIECES` (bed, sofa, tables, desk, kitchen, island, tall units, stairs, wardrobes,
+      bookcases, shelves, TV unit, nightstands, ceiling boxes). Pieces up to 600 triangles stay as they are; a piece of
+      4 or more parts becomes one box per part (more than 80 parts: one box); a big one is cut down to about 220
+      triangles; anything else becomes a hull.
+    - Loose bits under 0.05 m2 go.
+  - What it leaves out: windows, context, fittings, lamps, plants, decor, chairs, doors, TVs, curtains, drapes, pieces
+    under 45 cm, and anything outside the flat's plan (balconies).
+  - Colour: shell triangles are split to 1.8 m or less. The flat's own Lights plus corner shading (14 ray casts per
+    vertex, 1.4 m reach) go into COLOR_0, kept under 1.
+  - `<flat>_back`: a backstop box round the shell, faces inward, material `M_InteriorBack` (one-sided). The main
+    material `M_Interior` is double-sided.
+  - The glb has one node per flat (a01..byt03), about 110k triangles, 1.6 MB. The selector session shows it at night,
+    scaled by status.
+  - Re-run it with `python interiors_export.py` after flats change. It caches per flat in `_export\interiors_cache` by
+    the furn.blend's time; `force=1` redoes all.
+- Swap size preview (17 Oct, Jano: "when swapping assets, is it possible to visually show their new sizes?").
+  - In the walker's Swap panel, the piece shown in the large view or pointed at in the grid appears in the room as a
+    blue box at its real size, next to the current piece's oak outline.
+  - The box is placed by furnswap's rules: the category's fit, back to the nearer wall or centred, standing or hanging,
+    its long side along the current piece's (for a near-square piece, along the nearest wall).
+  - A caption gives both sizes and the differences in cm.
+  - Sizes come from `furnlib.public()`: the thumbnails' measures (thumbs.json), a downloaded catalogue model's own, or
+    the cars' (`CAR_DIMS`). Categories carry align / vert / fit.
+  - BlendKit paid download queue (17 Oct, Jano: "if we haven't bought an asset yet, Swap to this button should be
+    replaced by something like save to download queue").
+    - In the Swap panel, a paid BlendKit model not bought yet (state not `ready`) offers "Save to download queue",
+      also on a grid click. It is kept as `wanted` in furnlib\catalog_items.json, and no swap is made.
+    - Once queued, the button says "In the download queue · remove" and takes it off again.
+    - Endpoint: POST /api/furncat/queue {item, cat, remove}. Queued models download once there is a BlendKit plan;
+      then they are swapped to like any other.
+  - Swap anchor (17 Oct, Jano: "choose where to lock alignment relative to the original asset").
+    - Control: "Keep in place", a 3×3 plan grid (wall side up: back / middle / front × left / middle / right as seen
+      from the piece's front) and Floor / Top. The default is the category's rule.
+    - Saved with the swap as `anchor` {f, s, v} (POST /api/swaps; `anchor_only` changes the active swap's anchor).
+    - furnswap.swap_one places by it. In furnswap terms, left as seen from the front = min along `lv`.
+    - furnswap.index records each slot's `front` (model x/y) in furn_slots.json for the page. Until a flat is furnished
+      again, the page guesses: the side standing against a wall (a gap under 35 cm) is the back - a bed's head, a
+      sofa's back - and the front is the other way. Only a piece free in the room faces by its short side. (17 Oct,
+      Jano: "Bed should have top other than it is": the short-side rule took a bed's long side as its front.)
+    - A near-square current piece gets the new piece's long side across its front.
+  - Swap pins (17 Oct, Jano: "there should be indicator near it, that it's changed, until it's baked").
+    - The walker shows a blue ⇄ pin over every piece with an active swap whose state is not `baked`. It's always on,
+      in the Studio only. Failed swaps get a red pin.
+    - Pointing at a pin shows a tooltip: the swap and its state (saved, in the model, downloading, wanted, failed).
+    - The pins are rebuilt on every `/api/furnlib` load.
+  - Move furniture, step 1 (17 Oct, Jano: "can we also build moving objects around? ... move around freely - take and
+    place"). The walker has a Move button (Studio only) next to Swap.
+    - Click a piece: its triangles are lifted out of `lm_furn` / `lm_plants` / `lm_sheer` (smallest piece box per
+      triangle, as the swap pick) into a group pivoting at its footprint centre on its floor level. The piece follows
+      the pointer on that level; R turns it 90°, Shift+R 15°. A click puts it down and saves it; Esc puts it back.
+    - Saved in `notes\_moves.json` (bakepanel `move_save` / `move_cancel`, POST /api/moves and /api/moves/cancel). A
+      move is the total turn `rot` (degrees, counter-clockwise from above, about the footprint centre) and shift
+      `dx` / `dy` (model) from where the furnish puts the piece. A new move replaces the old one (status
+      replaced / cancelled, `tu` = when).
+    - furnswap `move_one` applies the moves after the swaps, about the piece's own footprint centre, and records them in
+      furn_slots.json "moves".
+    - /api/furnlib gives `moves` with their state and `move_base`: per piece, the move in force when the walkthrough was
+      baked (what its geometry already shows). The page shows every piece whose wanted move differs from its base,
+      moved; a blue ↔ pin marks it until baked.
+    - Carrying: the piece follows the pointer on a level plane at the height it was grabbed (clamped to its floor
+      +1.6 m).
+    - Walls (17 Oct, Jano: "can collide with interior side of the wall", "can't go outside to exterior"): a piece may
+      touch and overlap walls. Only its middle must stay over the flat's own floor (`inside`: a shell surface within
+      0.6 m below its floor level +0.3). When pointed outside, it stops at the last point still inside (a binary
+      search along the move).
+    - Saved moves show after a reload: the preview waits until the flat's meshes are in.
+  - Move furniture, step 2 (17 Oct): snapping and dimension lines.
+    - Hold Ctrl while carrying to snap. The Move panel's "Snap point" grid (the piece from above, back up) chooses
+      which part snaps; it is kept in localStorage `move.anchor`.
+    - Per axis (its front axis, its side axis): a middle point centres the piece between the nearest things on both
+      sides; a side point puts that side flush against the nearest thing.
+    - Gaps are measured from its own faces outward (rays at 3 heights). A hit on a piece whose box overlaps the
+      carried one is skipped (`castFree`).
+    - Along the wall behind it (within 60 cm), window / door edges count as things too (`jambs`: rays into the wall
+      every 5 cm at 1.2 m, ±3 m, cached).
+    - Blue dimension lines with cm labels show the four gaps while carrying.
+    - The piece's front: furn_slots `front` while it was never moved, else the side against a wall is its back (as the
+      swap preview).
+    - window.__walk.move = the Move module, for console checks.
+    - The mouse button locks the pointer for looking around. While it is down, the carried piece does not follow, and
+      the click puts it down at the click's own point. (17 Oct: it followed the screen's middle while locked, so a
+      plant jumped behind the wall at the click.)
+  - Sideways swaps (17 Oct, Jano: "auto-fix the sideways sofa swaps"): in furnswap `swap_one`, a new piece of a
+    `WIDE_CATS` kind (sofa, sideboard, desk, tv, shelving, wardrobe) that comes out more than 1.3× deeper than wide is
+    turned a quarter. A sofa is then turned by its backrest (`FF.seat_front` along the old front axis), so its back is
+    where the old one's was.
+- New flatfurn pieces (A01 notes 37–38, 17 Oct):
+  - `shower_corner`: a square frameless corner shower. Two 8 mm glass walls, each a fixed pane plus a sliding pane on a
+    black top track, meeting at an open corner entry; rain head, mixer, linear drain; floor-level tiled floor. It
+    replaces the IFC's plastic quadrant shower.
+  - `adjustable_spot`: a gimbal surface spot (canopy, fork, tilted head), for every light outside bathrooms where Jano
+    wants adjustable spots.
+  - A01 drops its IFC basin, washer and shower (`IFC_DROP` |58504| |58619| |58513|) for a vanity, BYT 01's Midea
+    washer (bk xfff4a07c) and `shower_corner`.
+- Kitchens: `flatfurn.kitchen2` has a `hob_oven` module (A01 note 21, 17 Oct): the hob over a built-in oven with a
+  drawer below; it gets the hob and the hood cabinet like `hob`. A01's kitchen (a01_params `KMODS_N`, `KITCHEN_FILL`)
+  has standard 60/80 cabinets, with the remainder to the window as a filler.
+- Live gloss: the lifts' doors and frames use `M_C_LiftSteel`, a copy of the railings' `M_C_Chrome` (common note 43, 16 Oct).
+  gloss_flat's `liftmetal` class gives them half the railings' "metal" strength (k 0.4).
+  The common floor (`M_C_FloorXY`) has its own class, `concfloor`: half the "floor" strength (k 0.7, common note 49, 17 Oct).
+  - The Bratislava panorama (16 Oct, the selector session's `panorama_build.py` -> `_export\selector\panorama.glb` +
+    `.json` + `panorama_water.png`; Jano: "in all exterior models even during the day with lights turned off ... and in the
+    view from the flats"): `exterior.html` and `walker.html` (Studio shared outside) load that same file - far nodes
+    (`*_far`) in a scene of their own drawn first with the sky (camera near 200 / far 26000), the near ones in the page's
+    scene, by day (dark glass, no lights), `Buildings_low` off (`exterior.html?pano_low=1` shows it; `?pano=0` none), the
+    walk bake's made-up far blocks (`LM_far`) hidden. The flats' window panorama (website) gets the city from
+    `pano_flat.py` (imports panorama.glb into the Cycles 360, FogExp2-like haze; `ZM_PANO_CITY=0` off, `ZM_PANO_OUT` a
+    trial path) - only for flats whose `pano_<flat>.exr` is rendered again (the pipeline renders it on a first bake only).
+    The panorama's trees (panorama.json `trees`, ~830 within 550 m): `studio\panotrees.js` (`panoTrees(THREE, trees,
+    {detail, prep})`, the selector's instanced crowns / cones / trunks) - imported by exterior.html and walker.html.
   - Slots (`extsurround.py`): `Car_01`–`Car_08` one by one; `Trees_street_1` / `Trees_street_2` (every other street
     tree), `Trees_lawn` (by hall B) and `Lamps` (all lamps), by row.
   - Choices: the walk's own cars (3 bodies × 7 paints, a side-view picture each), its trees and lamp (`furnlib.py`,
@@ -446,7 +801,7 @@ Running things:
     (slots, every object's box in page coordinates, the swaps applied).
   - For the 10 Oct 04:25 bake, that file came from `ext_layout.py` (the layout without a bake). Its check found
     every car and lamp box full of that bake's own geometry.
-  - A model car: decimated to 60k faces, its glass becomes the walk's car glass, and a length outside 2.4–7.5 m is
+  - A model car: decimated to 30k faces (20 Oct, Jano: "simplify them"; repeated passes until within 10 %), its glass becomes the walk's car glass, and a length outside 2.4–7.5 m is
     scaled to 4.5 m. Its front is guessed along its length; "Turn it round" flips it.
   - A swap that can't be built (not downloaded, fails to load) is reported, and its slot keeps its own item.
 - BYT 01 after the developer's visualisations (Jano, 9 Oct; his answers to suggestions 1–20). Pieces in `flatviz.py`;
@@ -530,6 +885,8 @@ Running things:
   - Exterior → 3D selector tab: since 13 Oct (Jano: "leave only version B and remove version A") "Live (B)" =
     `/walk/selector/index.html?hybrid=1` (reloads after a new 3D selector bake) and "Baked + notes"; A and the A | B view
     (studio\selcompare.html, now unused) are gone from the tab. Notes in the live view can be edited (Edit) since 13 Oct.
+    16 Oct (Jano: "will you put the prototype in the Studio?"): a third choice, "Night" = `/walk/selector/index.html?night=1&demo=1`
+    (the selector session's night prototype: no daylight bake, windows lit by status, demo status mix; same notes layer).
     Before (12 Oct): "Live (A)" (default) shows the live selector page `flats\_export\selector\`
     (written by build_selector.py - the selector session's; served read only as `/walk/selector/`), "Baked + notes" the
     baked `/walk/exterior/?light=selector` view with the exterior notes. `/api/units` in the Studio (13 Oct, bakepanel
@@ -566,7 +923,201 @@ Running things:
   - Every unit is an invisible volume. Hover or tap shows it as an orange X-ray, and a tap opens the card.
   - Price and status come from `/api/units`. The card matches a unit by `id` (a32, byt01...) or by `name`
     ("Ateliér 32"). Until then it shows the plan area and "podľa cenníka".
-  - The WALK map in the page lists which units have a walkthrough.
+  - Which units have a walkthrough: `walks.json` next to the page (13 Oct; before, a fixed list of a32, a25, byt01 in the
+    page). `r2publish.py` writes it from what is on R2 (any run; the selector goes last), `build_selector.py` from
+    `flats\_export` for the Studio. A new bake shows on the website only after `python flats\r2publish.py <flat>`.
+  - Common areas (15 Oct, Jano: "make the published common spaces walkable"): walks.json lists "common" too; the page
+    shows "Spoločné priestory" under the logo (`../common/index.html`) and in each card "Chodba pred bytom"
+    (`../common/index.html?at=<unit>`, read by walker.html).
+  - Master 3D model in the selector (26 Oct, Jano: "3D selector output still doesn't show 3D master data model. why?"; "live in
+    browser, but keep the same dusk / night sky and optimize assets by distance ... below 20 [MB] ideally"; the master session's
+    hand-over side-session-notes\local_d3fc90b5-...\selector_master_web_set.md):
+    - `flats\selector_city.py` -> `_export\selector\city\`: walks_engine `geo\geo_web_set.py if_stale=1` (the project's web copy of
+      the master, made again only when the master changed; full detail within 350 m, less with distance; since 27 Oct it reaches
+      past the Slovak border (Copernicus terrain, OSM buildings and land use): 326 pieces, ~17 MB; L0 tiles go to the near scene,
+      which ends at 2,500 m - fine at the page's 119 m max zoom, but a test camera far out shows the sky through as an orange strip),
+      web.json + web\, layers.json (the Exterior's layers "In outputs": zm = our building.glb's area cut out of the master; OXIO,
+      Accord, Matadorka Living as their planned blocks from city_planned.glb), and the engine's `citytiles.js`. r2publish.py runs it
+      before every selector upload.
+    - The page (`loadCity()`, inside the old panorama block): `createCity(... frame 'project', layers, street: true, prep)`; prep
+      adds the see-through veil (withFade) to every master material and, at night, lit windows (16 % of the facade shader's glass;
+      the planned blocks' window grid likewise); the near ground takes the building's shadow.
+    - Trees (27 Oct, Jano: "why do I see again those fake trees there?"; "pictures only, except closest trees within 500m radius";
+      "yes, definitely lighter models"): the master's light web kit (geo_trees_web_light.py, 12 BlendKit kinds, <= 3,000 faces,
+      256 px WebP, 1.9 MB) in web\treekit -> selector_city.py copies it to city\treekit\. `treeNear: 500` = 1,211 trees as models,
+      the other ~12,800 as pictures. At night the pictures (unlit MeshBasic) are darkened (`IMP_NIGHT` 0.2 in prep). Without the
+      kit the loader draws plain crowns. Licence: BlendKit Royalty Free models downloadable from the site - Jano's call.
+      Attribution from web.json, all of it (ÚGKK, GKÚ, Copernicus, OSM: license terms), in `#attrib` bottom right: capped beside
+      the compass, a faint backing, "©" kept with its name. `window.__selector.city` = the loader's handle.
+    - Far panorama (27 Oct, Jano: "I see the various assets gradually loading in the distance ... Can't we just render it as a static
+      panorama picture?" - "panorama fix"): past `FP_CUT` 1,500 m the city is one picture per light, `city\farpano\<day|night>.json`
+      + .jpg + _mask.png (+ _m halves for phones; ~0.4 MB a light). `flats\selector_pano.mjs` renders it in headless Edge with the
+      page's own `?panobake=1` (the far tiles, landmarks and far tree pictures from 60 m over the building, no haze or sky, float
+      light + distance, 32 slices, resampled to 8192 px around). The page draws it as a mesh, each point at its measured distance,
+      so the height and orbit keep the perspective at the seam; the live fog, sky and night tint go over it. Only the 42 pieces
+      within the cut load live (8.6 MB, was 18). `FP_V` in the page = the picture's version - raise it whenever the far shading
+      changes (2 = the floodlit castle, 27 Oct), then selector_city.py renders both again; a picture older than web.json's
+      `web.source` or of another FP_V is not used (all tiles live, as before; also `?farpano=0`). selector_city.py re-renders the
+      stale ones at each run, except while a bake runs.
+    - Only the new city, by day, dusk and night (Jano, 26 Oct: "show new city model, not the old one"): the old panorama
+      (`loadPanorama()`) no longer stands in when city\ is missing; it loads only with `?pano=old` (comparing). Lost with it for
+      now: the floodlit castle and the aviation lights at night.
+  - Bratislava panorama (16 Oct, Jano: "correct Bratislava panorama ... Castle, Malé Karpaty, Kamzík, Eurovea and other
+    towers"; "start with open data"): `flats\panorama_build.py` (`python -P panorama_build.py`, ~15 s, Blender only for Draco)
+    -> `_export\selector\panorama.glb` + `panorama_water.png` + `panorama.json`. One shared model for every exterior view
+    (walks-studio was asked on 16 Oct to load it in exterior.html and the flats' window views).
+    - Sources in `flats\_ref\panorama\`: Copernicus GLO-30 DSM tiles N48 E016/E017 (buildings removed by a 150 m opening);
+      OSM buildings, chimneys and water (Overpass, multipolygons fetched by id).
+    - Placement: our OSM outline (way 109456984) matched to the IFC footprint, to about 1 m. Grid +x = azimuth 28.8°, the south
+      facade faces 118.8°; IFC = (u + 16.7, v + 13.5).
+    - Nodes: Terrain_near / Terrain_far, Buildings_near / Buildings_far, and Buildings_low (< 24 m within 300 m; shown,
+      `?pano_hide=Buildings_low` hides them).
+    - Landmarks:
+      - Kamzík: a square diamond spindle, as sk.wikipedia describes it.
+      - The castle: the palace with four towers, floodlit at night.
+      - The UFO pylon, the spires, and the 119 m Matador chimney 135 m from us.
+      - Aviation lights.
+    - In the selector page: the far part in its own pass (near 200 / far 26000), FogExp2, and a window shader (by day dark
+      glass; at night 18 % lit, Jano: "too many ... too dense ... 10 % less"). `?pano=0` turns it off.
+    - Credit line "© OpenStreetMap · © Copernicus DEM" bottom right (ODbL / Copernicus terms).
+    - The cadastral industrial hall across the street stands at model y -26. extsurround's street strips (cycle path,
+      sidewalk to -33.6) overlap it.
+    - Castle lowered (Jano vs Google Earth: "isn't the castle too big?"): walls 20 m, hipped red roof to 29 m, towers to 36 m.
+    - Castle "too wide" (Jano): OSM way 1128350263 "Bratislavský hrad" is the whole 320 x 340 m complex and had become a floodlit
+      20 m wall. Now only the palace (8160490) is the castle, and outlines without a building tag are skipped.
+    - Neighbours on (Jano: "turn on the neighboring buildings ... make sure they don't obstruct our camera view"): Buildings_low
+      shows again. Anything in the cone from the eye to a 50 m circle round the orbit target is drawn as a screen door (one pixel in
+      four), but only where it rises above the sight line to the near facade's foot. That covers buildings and trees (`withFade`).
+    - Trees: only with a building within 35 m and >= 8 m tall (Jano: "only those which protrude among the buildings"); 521.
+    - Checked against Jano's Google Earth view by rendering from its own camera (its URL: @lat,lon,alt a, dist d, fov y,
+      heading h, tilt t). Its "35y" matches our vertical fov 28.6. Kamzík lands within ~10 px. Google only as a visual check:
+      its terms don't allow taking geometry from it.
+    - Building parts (`osm_parts.json`, building:part within 3.5 km): an outline that contains parts is drawn as its parts. Way
+      1153991739 (Viedenská cesta, a 270 m complex tagged 85.6 m) had stood as one 85 m wall next to the castle. The castle's
+      parts are white, floodlit, with red hipped roofs on the wings and pyramid caps on the towers. The rectangle is only a
+      fallback.
+    - Roads (Jano: "draw present roads ... Gustáva Malého, Údernícka, Pri Smaltovni and connect them to our existing roads"):
+      - node Roads: OSM ways within 1 km (`osm_roads.json`) as ribbons, asphalt / light paving / red cycle paths, dashed
+        centre lines on two-way streets;
+      - cut inside SITE_PAVE (our site model's paving), so its own roads continue them;
+      - the ground round the site is now -0.30 (its roads' level); -0.8 only under the site model;
+      - page `roadMat` with polygonOffset, receives shadows.
+    - Exterior notes 10, 11 and 13 (16 Oct):
+      - #10 is Matadorka A, a real 29-floor / 85 m tower; its whole 3,650 m² outline had been extruded. #11 is two
+        12-floor blocks (OSM survey 2023). Both are now drawn from their parts. OSM `building:colour` is used.
+      - Corrections go in `OSM_FIX` = {way id: levels / height / min_height / hide} in panorama_build.py.
+      - #13 (connect the roads): the streets are cut by `SiteCover`, a 0.5 m raster of the site model's own surfaces, not by
+        the SITE_PAVE rectangle. The terrain apron is -0.8 only within 1.5 m of them.
+      - The replies were written into the note files because the Studio was off.
+      - Note 12 (walks-studio extended Pri Smaltovni's street to the Gustáva Malého crossing; surround.json "street_ext" = page x / z
+        rectangle + road_y): the panorama sinks there rather than being cut, because the day selector has no surround.glb.
+        Ground goes to road_y - 0.20 and roads to road_y - 0.08, ramping out over 3 / 6 m. Read on every build.
+    - Planned neighbours (16 Oct, Jano: note 14 "this building needs to go - Matadorka Living"; "use this for the streets / the
+      OXIO building / Accord"):
+      - Sources:
+        - Compass's Nová Matadorka 2020 site plan + sections (`Compass - Nova Matadorka\Spolupraca\priloha_c_1...pdf`):
+          Stavba S 3 x 10 floors (35.65 m) + 2 x 8+1 (32.65 m) on the kept hall, Stavba M round tower 29 floors (90.6 m);
+        - the 2025 easements plan (`OxioĦ.0_MAT_NoMa_2BSkacel_2025-05-20-Priloha_5_VecneBremena.pdf`): the streets;
+        - OXIO's light study (`OxioĦ.0_MAT_DUR_03.Sektory_D-J_SVT_Posudok_okolie, preslnenie_2024-07.pdf`, p.3): sectors
+          D-J, floors in black squares;
+        - Accord (`AcordĦ.2_MAT_ACC_DUR_01_REV04_KOMPLET.pdf`, p.22 situácia zelene): A1-A4, floors x 3.8 + 1.5 m.
+      - Plan aligner (Jano aligned all four): `flats\_export\aligner\index.html` (seltest server, 8794). It keeps
+        world = Rot(rot)·(x_pt·S, −y_pt·S) + (tx, ty) in localStorage `zm.aligner.v1`. The values are copied to the scratchpad's
+        nm\align.json. Note: the light study's sheet is at S 0.58 m/pt, not its labelled 1:1000.
+      - Footprints: floor labels (white digits) → the smallest closed outline (2020 plan) or a flood fill to the drawn walls
+        (study, Accord).
+      - → `_ref\panorama\planned.json` (46 buildings, model metres) and `planned_roads.json` (the 2025 plan's coloured
+        easement bands traced by colour; areas > 5,000 m² dropped as tracing errors).
+      - panorama_build.py draws them as node **Planned**, removes the OSM buildings / parts under them (the old hall too), lays
+        the street areas into Roads and cuts the OSM ribbons there.
+      - The scripts are scratchpad-only (make_planned.py, flood_blds.py, make_vb_roads.py); planned.json is the kept result.
+      - Streets (16 Oct, Jano: "draw the cycle path and all the streets according to this picture"):
+        - `_ref\panorama\plan_streets.json` holds the 2025 plan's own filled shapes by colour (scratchpad make_plan_streets.py):
+          0.902 road, (0.929, 0.871, 0.886) cycle path, 0.957 / 0.949 sidewalk, (0.894, 0.91, 0.886) grass. The fills are
+          triangle lists.
+        - Inside the plan's area these are the streets, layered in the plan's drawing order. The OSM ribbons are cut there
+          (mask grown by 1 m), and the easement-band tracing (planned_roads.json) is retired.
+        - Our street's section, south of the building (model y): road −17.7..−23.7, cycle path −24.7..−26.7, sidewalk
+          −27.1..−29.1.
+        - The selector hides surround's Street strips (default show=Lamps,Cars). walks-studio was asked to build the walk's
+          street from the same file.
+      - Matadorka Living (Stavba S) and Stavba M's base (Jano 16 Oct, after the visualisations): panorama_build.py
+        `matadorka_living()`:
+        - two vaulted brick hangars side by side (the hall split lengthwise: walls 6.5 m, rise 3.2 m, arched gables);
+        - the five blocks: full floors, then two floors recessed by 1.8 / 3.6 m, green roofs;
+        - the north row: 5 window columns (TEXCOORD scaled per face) and balconies on the middle 3, from floor 2;
+        - M's base ("Stavba M – base" in planned.json, the 2020 plan's 1-floor hall): a sawtooth roof, 6 m teeth from 5 to 8 m.
+      - Open: the study's 2-digit labels (12, 17, 21, 34, 37) are left out until Jano confirms them; the tower Ø 38 m is an
+        estimate from the plan.
+      - D2 (exterior note #15, 20 Oct; Jano: "this well won't be here ... what building is proposed here?"): Oxio's housing block
+        straight west across the street, 15 floors, roof +48 (part +52), outline = the study's own rectangle (svt path 287045)
+        through the aligner values, model x -98.7..-62.4, y -3.4..15.1. Added to planned.json by hand ("name": "D2 bývanie"); the
+        low OSM building under it drops out via `replaced()`. Shows in the selector at its next R2 publish.
+    - Studio notes click (Jano: "when I add a note it switches to rotation mode and stays"): selnotes.js no longer stops
+      pointerup (OrbitControls never let go). It sets `e.zmNote`, and the page's card pointerup skips such events.
+    - Trees (Jano: "within maybe 500 metres"): panorama.json `trees` (`make_trees`, TREE_R 550 m, none on SITE_BOX = our
+      site and street). Sources: OSM single trees (only 17 here), tree rows, woods / scrub filled, and canopy where the
+      Copernicus DSM stands >= 5 m over the opened terrain away from buildings. 830 trees, sparse between the blocks.
+      The page draws them as three InstancedMeshes.
+    - Better data for both trees and the near buildings: ÚGKK's 1 m DSM / DTM (laser scan) via geoportal.sk (to check
+      before downloading). Google Earth is only a visual reference: its terms don't allow deriving models from it.
+    - **Published 16 Oct** (Jano: "put today's evening and panorama work on the website as 3D selector"):
+      `r2publish.py selector` uploaded panorama, planned neighbours, streets, interiors and the evening view.
+      - The day view (default) has a "Večerný pohľad" button.
+      - "Ukážka stavov" (the demo mix) shows only on localhost.
+      - The day view also loads surround.glb (Street, Lamps, Cars; lamp lights evening only). Jano: "the 3D walk shows something else than the 3D selector" - one street model in both.
+      - The Stavba S hall's footprint runs between its blocks' north and south faces, so the walk's south cycle path and
+        sidewalk stay visible.
+  - Drawing on demand (14 Oct, Jano: GPU stayed at 60 % after a bake with the Studio on the Bake tab): the page drew
+    every frame forever and ignored the Studio's pause, so a once-opened 3D selector tab kept the GPU busy. Now it draws
+    while the camera moves or the pointer / keys act (+1.5 s), and otherwise once every 2 s; `{studio: 'pause'}` stops it.
+    Code that changes the scene outside those events can call `window.__selector.invalidate()`.
+  - Night prototype (16 Oct, Jano: "make the 3D selector during night and light the flats inside"): `?night=1` (no
+    daylight bake; night sky, moonlight, bloom). Every glass triangle goes to the nearest unit volume (< 0.9 m) and gets a
+    warm emissive copy 5 cm inside: free 1.0, reserved 0.55, pre-reserved 0.24 (Jano 16 Oct), sold / unavailable dark; metals' env x0.06 at night (`GLOW`,
+    `nightStatus`). `&demo=1` = a made-up status mix. Legend top left (phones: top right) with links to the day view / demo. The
+    default page is unchanged. r2 (Jano: "too dark - add a moon, stronger moonlight, better starlit sky"): moonlight
+    hemi 0.5 / directional 1.05; a 4096 px sky with ~9,000 stars (sizes, tints, glow on the bright ones) and a faint Milky
+    Way; a moon sprite placed by the view (az -20 deg, kept inside narrow pictures, just under the top edge / low over the
+    horizon); night starts with a lower camera so the sky is in the picture; GTAO off at night (it drew the sprite as a
+    dark square).
+  - Dusk (16 Oct r3, Jano: "lights already up, but the sky still lit from sundown; add street lights"): `?night=dusk`
+    (also in the legend: Denný pohľad · Súmrak / Noc). Afterglow sky painted per pixel (orange-pink band towards u 0.5,
+    violet, deep blue, first stars), violet-blue hemi + a weak warm low light, no moon. Street lamps in dusk and night:
+    `selector\lamps.json` (22: the 3D walk's 4 lamps from `exterior\furn_slots.json` continued west every 11.5 m, one
+    between each pair of its street trees, 5 from `_ref\site_marks.json` centre lines) - posts, a glowing lens, an
+    additive warm pool on the ground; no real lights (phones). Hall B's glass (no unit near) glows cool white = the gym.
+  - Evening (16 Oct r4, Jano: "western view dusk, eastern view a fixed moon with stars, blending as the user rotates; orange
+    near the horizon, more violet further up"): `?night=1` (and `?night=dusk`) = one sky fixed to the compass: the
+    afterglow round the October sunset (WSW, `SUNSET_AZ` 255), night + Milky Way + a fixed moon (ESE, az 105, 8 deg up) on
+    the other side; dusk weight by the angle to the sunset (full < 45 deg, none > 150 deg), narrowing with height. The
+    over-the-shoulder light takes the colour of the sky behind the viewer (moon blue facing the sunset, afterglow
+    facing away). Building B's lights off (Jano, for now).
+  - Interiors behind the lit windows (16 Oct, Jano: "real interiors, only much simpler ... stairs, mezzanines, furniture roughly
+    visible"):
+    - Source: walks-studio's `interiors_export.py` → `_export\selector\interiors.glb`. That's 37 flats, one node per flat
+      (a01..byt03), already lit in COLOR_0. Re-run after furnish changes; it caches per flat.
+    - In the evening view, every node gets a MeshBasicMaterial with vertexColors (curve pow 1.1 x 1.1), tinted
+      lerp(white, warm, 0.45) x GLOW[status] x INTERIOR_K 0.95; sold = hidden. Rooms double-sided; each flat's `<flat>_back`
+      box (its shell's box + 25 cm, facing in) front side only at half light, so a gap ends on a wall, not the sky.
+    - The night glass is opacity 0.16 (env 0.15) once interiors load, no depth writes (two panes had shown their diagonals
+      as an X). The glow panes are off in front of an interior (PANE_WITH_INTERIOR 0); hall B keeps its pane.
+    - `cutBuildingInside()` (16 Oct, Jano: "this is some nonsense inside", "from this side also"): building.glb keeps the
+      IFC's inner walls, floors and inner glazing, which stood in front of the rooms as moonlit navy planes. With the
+      interiors on, a 25 cm 3D mask (a Data3DTexture) marks each flat: its outline from flats_geom.json shrunk 15 cm, plus
+      its shell's box (interiors.glb, shrunk 15 cm) within 2 m of the outline (A32's gallery reaches IFC y 10.74 against an
+      outline ending at 9.0). Every building material except frames, rails and blinds discards a fragment that is inside
+      the mask or whose line of sight to the camera crosses it within 1.8 m. The facade's outer faces look away from the
+      flats, so they stay. Day view unchanged. Checked 16 Oct, south and north close-ups: no navy left.
+  - ONE MODEL FOR ALL VIEWS (Jano, 16 Oct): "always use same models for all views ... the same exterior as in the 3D
+    exterior walk, same streetlights. Just turn off the buildings. When I add a note to move a streetlight it should move
+    it everywhere." The selector's own generated street lamps were removed the same day. Asked walks-studio to export the
+    walk's surroundings (extsurround / ext_layout, with swaps) once as `_export\selector\surround.glb` (groups Street,
+    Neighbours, Trees_*, Lamps, Cars...), which the walk bake also uses; the selector then only switches groups per view.
+    Done the same day: walks-studio's `ext_surround_export.py` writes `_export\selector\surround.glb` + `surround.json`
+    (lamp lens points) from extsurround's own layout and swaps (re-exported after every exterior swap). The selector's
+    evening loads it: Street, Lamps, Cars on (`?show=` to change), Neighbours / FarBlocks / trees off; each lamp is a
+    PointLight (28, 18 m) + a small glow sprite. r2publish's selector folder carries it (3.9 MB, evening only).
   - Navigation is rotate and zoom only, around building A; building B is not for sale.
   - There is a rotation control bottom left. Its orange needle and "N" point to true north: the building grid's +y
     turned 61.2° towards +x (ASR north arrow "Severka 27" in E.2 Pôdorys 1.NP.dxf; the OSM outline gives 61.7°). The
@@ -604,6 +1155,34 @@ Running things:
           and `<id>_big.jpg` (opens on a click).
       - Exterior notes 6–8 (13 Oct) were done in zm_master: flat paver pads on the 24 parking spaces (`parking`, from
         `site_marks.py` `parking_pads`), roof lights with anthracite frames and dark glass (`rooflight`).
+      - One Exterior bake (27 Oct, Jano: "does 3D selector need any baking at all?", then "yes" to one sunless Exterior bake for
+        the Exterior, the flats' windows and the selector; no selector bake of its own):
+        - `flats\selector_bake_web.py` (geo\.venv, Pillow) -> `_export\selector_bake\`: from `exterior\walk` once its exterior.json
+          says `sunless` (the page adds its own sun - a sunny bake doubles it), else the old `exterior\selector`. Only the meshes with a
+          "light" map + Glass (Draco copied, only renumbered); maps building 2048 / others 1024; ~3 MB instead of ~31.
+        - `r2publish.py selector-bake` builds it, then uploads it as walk/selector-bake/. hooks.py `XB_SELECTOR` = walk, selector:
+          their after-bake publish and the Website panel line "3D selector's light (Exterior bake)".
+        - The page (Studio): baked/walk/ first, only when sunless (or `?bake=`); shows only the bake's light-mapped meshes + Glass.
+        - To do after Jano's first sunless Exterior bake: tune `AMB` (set for the old even-sky bake).
+      - Only version B (13 Oct, Jano: "leave only version B and remove version A. B looks slightly better when baked in
+        full quality"):
+        - The hybrid (bake as the sky light + live sun) is the page's default. It looks for the bake at
+          `../selector-bake/` (R2, uploaded with `python flats\r2publish.py selector-bake`), then at
+          `../exterior/baked/selector/` (Studio).
+        - The live light alone is only the fallback (no bake, or `?hybrid=0`).
+        - B draws the bake's own exterior.glb, so model changes show in B only after the next 3D selector bake.
+      - Notes 5, 8, 9 (13 Oct):
+        - grass in thin open gaps (`site_marks.py`, ≥3 sides within 3 m);
+        - the IFC glass-wool strip M003 at the A–B junction is left out (`shell()` keep mask);
+        - the parking pads sit 1.5 cm over the highest surface under them.
+      - Website pushed 13 Oct (Jano chose "selector fix + all pending work"): commits 69dc4a0 + 1697cff on
+        atelier-walkthrough.
+        - The home button opens `https://3d.ziegermill.sk/walk/selector/index.html` (`NEXT_PUBLIC_SELECTOR_URL`
+          overrides).
+        - `/api/units` sends `Access-Control-Allow-Origin: *`.
+        - `public/walk/selector` is removed from the repo.
+        - The old local `public/walk` copies are in `git stash` ("old local public/walk copies ...").
+        - For /admin online, Vercel needs `SUPABASE_SERVICE_ROLE_KEY` (Jano sets it).
       - All three points are with the architect: the missing windows in the IFC, which north openings close, and the
         missing roof. The 3D walks session adds them to the architect sheet.
     - The comparison still (Cycles) is `flats\selector_photo.py` → `_roof\selector_photo_B.png`.
@@ -682,8 +1261,19 @@ Running things:
 - Bake queue window: built 9 Oct, see the Studio section. It needs one Studio restart to take over. Then Jano signs
   in to GitHub once (`git credential-manager github login`) and presses "Retry all" on the night's three bakes.
 
-- BYT 01 notes #13 (window steel profiles: ask the architect), #24 (dark 6.04 lighting), #37 (double corner) and #39
-  (WC + shower in 6.09) are waiting for Jano's answers.
+- BYT 01 #13 done 15 Oct (Jano: "keep but hide it behind drywall"): params `BAND_BOX = True` makes `build_ifc_flat.py` box
+  the IFC's steel window transoms (Obj0003) in 12.5 mm white board inside the reveals (`<PX>_BandBoxes`, shell group).
+  On (Jano 15 Oct: "yes box them") in BYT 01-03, A34, A14-A22 and A28-A31.
+  BYT 01 notes #24 (dark 6.04 lighting), #37 (double corner) and #39 (WC + shower in 6.09) were waiting for Jano's answers.
+- BYT 01 15 Oct notes 96-106 (byt01_params.py block): `STEEL_PAINT` (black steel as non-metal charcoal paint - gloss_flat.py's
+  "metal" class mirrored the room and read grey; build_ifc_flat.py swaps it when set), `WC607_V` / `IFC_MOVE` (WC basin and
+  mirror off the door's swing), `TILE_PATCHES`, `SHOE_BENCH_V`, `WASHER_AT` (a dryer stacked on the washer; the washer
+  model choice is open, note 101), `mirror_under()` in furnish_byt01.py (LED under the mirrors). gloss_flat.py: names with
+  "matte" / "paint" / "brushed" are satin before any material word ("steel" alone is still metal).
+- A34 note 53: `FF.Piece.build(recalc=False)` keeps hand-turned faces (the A34 stair's loose faces flipped under
+  recalc_face_normals - black treads, not walkable).
+- A11 notes 1-7 (15 Oct): `furnish_a11.py` is now its own script (furnish_ifc_min.py's code + the notes, as A34's), data in
+  `a11_params.py`'s 15 Oct block (`DOORS`, `WARD_HALL` / `WARD_ROOM`, `BED`, `KITCHEN`, `DEVICES`). No shared code changed.
 - A32 note 132 (stair/cabinet "seamless slope"): reading (a) flush oak front or (b) closed risers? Waiting for Jano.
 - DB-driven price/area chip inside the walkthroughs: planned, "not now".
 - The building's exterior will get nicer once the architect delivers exterior objects.
@@ -741,6 +1331,13 @@ Running things:
     architect (sheet). Rough costs given to Jano: A/B ~€60-95k, D adds ~€15-35k per private flat for stair + hatch;
     an extra lift stop to the roof ~€30-60k (not wanted).
   - The 12 ventilation cowls moved into the parapet planter band (`COWLS`).
+  - Waste-stack vents (15 Oct, from walks-studio; architect point 28): every waste stack must vent above the roof (open,
+    ~2 m over the walkable deck, away from hatches) unless the HVAC engineer uses air admittance valves with one main
+    vent. A32's two stacks are drawn in its services model.
+    - In the master model since 16 Oct (Jano: "can you draw them also in exterior models on the roof?"): `WASTE_STACKS`
+      (the 20 stacks of E.9, IFC metres) -> 13 terminals in `rooftop_plant()` (part RooftopPlant, so the exterior bakes
+      take them): stacks < 0.5 m apart share one; PP pipe + cap 2.0 m over the deck, 0.5 m over the pavilion roof for
+      the two under it. Provisional (sheet points 28/29). They show in the selector / 3D walk after the next bakes.
   - Plans and sketches: `_roof\Strecha_A_*.png` (local, excluded from git). Renders: `flats\roof_preview.py` (Eevee,
     not a bake, ~45 s a view; run only when no bake is running): `-- variants=... views=bird,table,west,corner`.
 - Community terrace on the roof of A: to be designed. Then tidy up the rooftop plant with it (Jano: "too many exhausts,

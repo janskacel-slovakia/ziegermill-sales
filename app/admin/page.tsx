@@ -63,6 +63,7 @@ export default function AdminPage() {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-white">{user.display_name} <span className="text-zm-neutral">({isAdmin ? 'administrátor' : 'maklér'})</span></span>
+          {isAdmin && <a href="/review" target="_blank" rel="noopener" className="px-3 py-1.5 rounded-lg bg-zm-orange text-zm-ink text-xs font-bold uppercase tracking-wider hover:bg-white">Pripomienky architekta ↗</a>}
           <a href="/" target="_blank" rel="noopener" className="px-3 py-1.5 rounded-lg bg-zm-neutral text-zm-ink text-xs font-bold uppercase tracking-wider hover:bg-white">Otvoriť web ↗</a>
           <button onClick={handleLogout} className="text-xs text-zm-neutral hover:text-zm-orange uppercase tracking-wider font-bold">Odhlásiť</button>
         </div>
