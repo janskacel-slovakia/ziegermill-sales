@@ -8,34 +8,7 @@ import { Logo, Bars, Spinner } from '../admin/_ui/shared';
 // its picture in 3D, the text, the conversation, the status and a reply (with photos). "Otvoriť v 3D" opens the
 // published walkthrough at that spot in a new tab. Jano with his /admin login, the architect with his personal link.
 
-type Status = 'open' | 'answered' | 'agreed' | 'done';
-type Photo = { path: string; name: string; w?: number; h?: number; url?: string | null };
-type Msg = { id: string; by: 'user' | 'claude' | 'architect'; author_name: string | null; text: string; origin: string; created_at: string; photos: Photo[] };
-type Point = {
-  id: string; n: number; date: string | null; unit: string | null; page: number; plan: string; at: [number, number]; title: string; text: string;
-  source: string | null; view: { kind: string; flat?: string } | null; status: Status; status_at: string; status_by: string | null;
-  still: { url: string | null; pin: [number, number] | null } | null; walk_url: string; messages: Msg[];
-};
-type Page = { page: number; plan: string; name: string; w: number; h: number; map: [number, number, number]; png: string; px: [number, number]; url: string | null };
-type Me = { id: number; display_name: string; role: 'admin' | 'architect' };
-
-const ST: Record<Status, { label: string; short: string; bg: string; fg: string }> = {
-  open: { label: 'Otvorené – čaká na architekta', short: 'Otvorené', bg: '#ffa62b', fg: '#231f20' },
-  answered: { label: 'Zodpovedané architektom', short: 'Zodpovedané', bg: '#3091b2', fg: '#ffffff' },
-  agreed: { label: 'Dohodnuté', short: 'Dohodnuté', bg: '#04318c', fg: '#ffffff' },
-  done: { label: 'Hotové', short: 'Hotové', bg: '#8a8f7c', fg: '#ffffff' },
-};
-const PLAN_LABEL = (p: string) => p.replace(/^(\d)NP(m?)$/, (_, n, m) => `${n}. NP${m ? ' medzipodlažie' : ''}`).replace('1PP', '1. PP');
-const when = (s: string) => new Date(s).toLocaleString('sk-SK', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-// as studio\architect.html / _architect\make_pdf.py: DXF metres -> PDF points of the sheet
-const toPt = (p: Page, at: number[]) => [p.map[0] * 1000 * at[0] + p.map[1], -p.map[0] * 1000 * at[1] + p.map[2]];
-
-async function api<T = any>(url: string, method = 'GET', body?: unknown): Promise<T> {
-  const r = await fetch(url, { method, headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined });
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(d.error || `Chyba ${r.status}`), { status: r.status });
-  return d;
-}
+import { Status, Photo, Msg, Point, Page, Me, ST, PLAN_LABEL, when, toPt, who, api } from './shared';
 
 function StatusPill({ s, long }: { s: Status; long?: boolean }) {
   return <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap" style={{ background: ST[s].bg, color: ST[s].fg }}>{long ? ST[s].label : ST[s].short}</span>;
@@ -129,6 +102,8 @@ export default function ReviewPage() {
           ))}
         </div>
         <div className="ml-auto flex items-center gap-3 text-sm">
+          <a href="/review/print" target="_blank" rel="noopener" title="Všetky výkresy s pripomienkami, obrázkami a odpoveďami ako PDF (v dialógu tlače zvoľte Uložiť ako PDF)"
+            className="px-3 py-1.5 rounded-lg bg-zm-orange text-zm-ink text-xs font-bold uppercase tracking-wider hover:bg-white">Export PDF</a>
           <span className="text-white">{me?.display_name} <span className="text-zm-neutral">({me?.role === 'architect' ? 'architekt' : 'investor'})</span></span>
           {me?.role === 'architect' && <button onClick={async () => { await fetch('/api/review/logout', { method: 'POST' }); location.reload(); }} className="text-xs text-zm-neutral hover:text-zm-orange uppercase tracking-wider font-bold">Odhlásiť</button>}
         </div>
@@ -308,7 +283,6 @@ function Detail({ p, me, onClose, reload }: { p: Point; me: Me; onClose: () => v
     setBusy('');
   };
   const choices: Status[] = arch ? ['answered', 'agreed'] : ['open', 'agreed', 'done'];
-  const who = (m: Msg) => m.by === 'architect' ? (m.author_name || 'Architekt') : m.by === 'claude' ? 'Claude (asistent)' : (m.origin === 'studio' ? 'Jano Skácel' : (m.author_name || 'Jano Skácel'));
 
   return (
     <div className="flex flex-col min-h-0 h-full">
