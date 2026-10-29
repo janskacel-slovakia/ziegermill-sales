@@ -1,3 +1,8 @@
 allowBuilds:
+  esbuild: true
   sharp: true
   unrs-resolver: true
+  workerd: true
+
+# The OpenNext Cloudflare adapter's symlinks fail on Windows (EPERM) without Developer Mode.
+nodeLinker: hoisted

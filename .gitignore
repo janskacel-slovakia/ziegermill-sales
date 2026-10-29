@@ -49,3 +49,7 @@ yarn-error.log*
 next-env.d.ts
 /app/archive
 pass.txt
+# cloudflare / opennext
+.open-next
+.wrangler
+.dev.vars
