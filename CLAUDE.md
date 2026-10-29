@@ -1353,6 +1353,20 @@ Running things:
     12 Oct). The .sk registration stays at exohosting (Cloudflare can't register .sk).
   - Test build (scratchpad copy): OpenNext 1.20 + wrangler 4.149. The server code is 1.7 MB gzip, under the free 3 MB.
     - On Windows, pnpm needs `node-linker=hoisted`: the adapter's symlinks fail with EPERM without Developer Mode.
+  - 29 Oct: the Workers setup is on branch `claude/ecstatic-pasteur-4z2dza` (off `atelier-walkthrough`, to merge into it;
+    Vercel keeps building it as before).
+    - Next 16.1.6 → 16.4.3 (OpenNext 1.20 needs ≥ 16.4.1), `@opennextjs/cloudflare` + `wrangler` dev deps,
+      `wrangler.jsonc` (Worker `ziegermill-sales`, `nodejs_compat`), `open-next.config.ts`, `public/_headers`
+      (immutable `/_next/static`), `nodeLinker: hoisted` in `pnpm-workspace.yaml`, `.dev.vars.example`.
+    - `pnpm preview` = build + run the Worker locally (needs `.dev.vars`); `pnpm deploy` = build + deploy.
+    - Checked in workerd locally: pages, `/api/*`, `public/walk` (`exterior.glb` is 24.0 MiB, under the 25 MiB
+      per-file limit). `/walk/x/index.html` redirects 307 to `/walk/x/`, query kept.
+    - Mail on Workers: use `RESEND_API_KEY` (fetch). Don't set `SMTP_HOST` there (nodemailer needs raw TCP).
+    - Next: Cloudflare Workers Builds connected to the repo, branch `atelier-walkthrough`, build
+      `pnpm exec opennextjs-cloudflare build`, deploy `pnpm exec opennextjs-cloudflare deploy`; the
+      `NEXT_PUBLIC_*` vars in the build settings (inlined at build), the rest as Worker secrets
+      (`SUPABASE_SERVICE_ROLE_KEY`, `REVIEW_SYNC_KEY`, `RESEND_API_KEY`, `MAIL_FROM`, `SITE_URL`); custom domain
+      on the Worker; then test /admin, /review sync and uploads before switching over.
 - Building services pilot (11 Oct 2026, Jano: plan pipes and cables from the model, x-ray through walls, "something like
   BIM"): `flats\_mep_pilot\` (README.md there).
   - A32 only: services IFC, quantities and costs (€27k / €43k / €69k excl. VAT, i.e. 412 / 654 / 1,056 €/m²; prices
