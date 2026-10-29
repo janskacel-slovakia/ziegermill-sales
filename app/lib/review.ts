@@ -73,7 +73,7 @@ export async function loadReview(opts: { withDeleted?: boolean; sign?: boolean }
     sheets: { panel: sheets.panel, pages: (sheets.pages || []).map((pg: any) => ({ ...pg, url: signed.get(`sheets/${pg.png}`) || null })) },
     points: (points || []).map(p => ({
       id: p.id, n: p.n, date: p.date, unit: p.unit, page: p.page, plan: p.plan, at: p.at, title: p.title, text: p.text, source: p.source,
-      view: p.view, status: p.status, status_at: p.status_at, status_by: p.status_by ? (who.get(p.status_by) || p.status_by) : null,
+      view: p.view, important: !!p.important, status: p.status, status_at: p.status_at, status_by: p.status_by ? (who.get(p.status_by) || p.status_by) : null,
       studio_at: p.studio_at, deleted_at: p.deleted_at,
       still: p.still_path ? { url: signed.get(p.still_path) || null, path: p.still_path, pin: p.still_pin } : null,
       walk_url: walkUrl(p),

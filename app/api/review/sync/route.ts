@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     id: p.id, n: Number(p.n) || 0, date: p.date || null, unit: p.unit ?? null, page: Number(p.page) || null, plan: String(p.plan || ''),
     at: p.at, title: String(p.title || ''), text: String(p.text || ''), source: p.source ?? null, view: p.view ?? null,
     ...(p.still_path !== undefined ? { still_path: p.still_path, still_pin: p.still_pin ?? null } : {}),
+    ...(p.important !== undefined ? { important: !!p.important } : {}),
     studio_at: iso(p.studio_at) || now, deleted_at: null, updated_at: now,
   }));
   if (rows.length) {

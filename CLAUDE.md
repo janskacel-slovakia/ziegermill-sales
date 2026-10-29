@@ -160,7 +160,21 @@ in `.claude\settings.json` as `{"permissions": {"additionalDirectories": ["C:\\U
   - Views: `flats\_architect\review_views.py` → `review_views.json`. A linked Studio note ("BYT 01 #45") gives the
     view; otherwise the walk grid does (camera 1.5-4 m away, clear line).
   - Stills: `review_stills.mjs [nv]` → `stills\` (headless Edge on `_export`).
-  - Hall B's points (20-22) open the 3D selector: there is no published exterior view.
+  - Hall B's points (18-20 since the 20 Oct renumbering; `review_views.py` picks them by id) open the 3D selector: there is
+    no published exterior view.
+  - Added 28-29 Oct:
+    - "Export PDF": `/review/print`, an A3 print view; save it from the print dialog.
+    - The Studio's Architect tab (walks-engine) can do four things:
+      - "Architect view" sets a point's view (`view_set` {flat, cam, pos, shot}, picture in `_architect\view_shots\`) or
+        "No picture" (`view_set.none`);
+      - "General note" adds a point with plan `general` (no page or spot; review tab "Všeobecné");
+      - "! Important" sets `important` (DB column, migration `20261029100000_review_important.sql`);
+      - "Sync with website" runs review_sync.py, which writes `_architect\_review_sync_status.json`.
+    - Spots outside every 3D model (most of the ground floor, e.g. room 1.06) get `kind: none`: no picture, no 3D button.
+    - `make_pdf.py` works again: dxfrooms.PLANS went with the engine move, so it carries its own floor-to-DXF table now.
+      It ends with a "Všeobecné pripomienky" page.
+    - The published walkthroughs got a page-only update so `?nv=` works: `_architect\page_update.py` stages it, then
+      Jano runs `r2publish.py --src`.
   - Tested 19 Oct with temporary users (zz-test-review-admin, zz-test-architect): now blocked, their messages hidden.
     To delete: `supabase/run_cleanup_review_test.sql`.
 - `/api/units` is the public JSON of the units: `id, name, unit_type, floor_number, rooms, interior_area, exterior_area,
@@ -201,6 +215,10 @@ Size is about 14 MB per walkthrough and 1 MB for the selector.
   `3d.ziegermill.sk/walk/<flat>/`, which also refreshes the selector's `walks.json`. The selector's light
   (`selector-bake`) goes the same way. The git route below (sitepublish.py) is now used only for an exterior target that the
   website repo carries, and there is none today. Needs one Studio restart to take effect.
+- 28 Oct (Jano: the Studio's Website check "takes forever"): `r2publish.py` copies nothing to temp any more (the rewritten page /
+  plates.json / walks.json stay in memory; update_3d's patch_* write through `U.open`), caches MD5s in `flats\_publish\md5cache.json`
+  (path + size + mtime) and lists the bucket once per run. A warm `--dry` over all 39 exports: 0.5 s (was minutes; the temp files
+  cost ~50 ms an open). `--all` skips `aligner`.
 - 14 Oct: `r2publish.py` also puts `plates.json` next to every walkthrough (the TVs' and door plates' price, areas, rooms,
   orientation, levels; the Studio serves the same live as `/api/plates` from `cennik.sql`). Before, production's TVs showed
   only the logo and number. After a new price list, run `python flats\r2publish.py --all` (only plates.json changes).
@@ -1093,6 +1111,10 @@ Running things:
     the other side; dusk weight by the angle to the sunset (full < 45 deg, none > 150 deg), narrowing with height. The
     over-the-shoulder light takes the colour of the sky behind the viewer (moon blue facing the sunset, afterglow
     facing away). Building B's lights off (Jano, for now).
+  - 28 Oct (Jano): the evening view is the default ("can you make night view default view ... currently it's day"): `?night=0`
+    (the legend's "Denný pohľad") for the day; `?hybrid=1` alone (the Studio's Live tab) stays day; selector_pano.mjs asks for
+    `night=0|1` explicitly. The interiors load on the website too ("why I can't see the interior furnishings in web?" - they had
+    been local-only since 16 Oct); `?interiors=0` turns them off. interiors.glb re-exported 28 Oct (1.85 MB, ~120k triangles).
   - Interiors behind the lit windows (16 Oct, Jano: "real interiors, only much simpler ... stairs, mezzanines, furniture roughly
     visible"):
     - Source: walks-studio's `interiors_export.py` → `_export\selector\interiors.glb`. That's 37 flats, one node per flat

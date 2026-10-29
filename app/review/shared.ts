@@ -4,7 +4,7 @@ export type Photo = { path: string; name: string; w?: number; h?: number; url?: 
 export type Msg = { id: string; by: 'user' | 'claude' | 'architect'; author_name: string | null; text: string; origin: string; created_at: string; photos: Photo[] };
 export type Point = {
   id: string; n: number; date: string | null; unit: string | null; page: number; plan: string; at: [number, number]; title: string; text: string;
-  source: string | null; view: { kind: string; flat?: string } | null; status: Status; status_at: string; status_by: string | null;
+  source: string | null; view: { kind: string; flat?: string } | null; important?: boolean; status: Status; status_at: string; status_by: string | null;
   still: { url: string | null; pin: [number, number] | null } | null; walk_url: string; messages: Msg[];
 };
 export type Page = { page: number; plan: string; name: string; w: number; h: number; map: [number, number, number]; png: string; px: [number, number]; url: string | null };
@@ -16,7 +16,10 @@ export const ST: Record<Status, { label: string; short: string; bg: string; fg: 
   agreed: { label: 'Dohodnuté', short: 'Dohodnuté', bg: '#04318c', fg: '#ffffff' },
   done: { label: 'Hotové', short: 'Hotové', bg: '#8a8f7c', fg: '#ffffff' },
 };
-export const PLAN_LABEL = (p: string) => p.replace(/^(\d)NP(m?)$/, (_, n, m) => `${n}. NP${m ? ' medzipodlažie' : ''}`).replace('1PP', '1. PP');
+// Notes with no place on a drawing (29 Oct, Jano: "generic notes for the architect without any concrete place on floorplan,
+// neither 3D view"): plan 'general', no page, at [].
+export const GENERAL = 'general';
+export const PLAN_LABEL = (p: string) => p === GENERAL ? 'Všeobecné' : p.replace(/^(\d)NP(m?)$/, (_, n, m) => `${n}. NP${m ? ' medzipodlažie' : ''}`).replace('1PP', '1. PP');
 export const when = (s: string) => new Date(s).toLocaleString('sk-SK', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 // as studio/architect.html / _architect/make_pdf.py: DXF metres -> PDF points of the sheet
 export const toPt = (p: Page, at: number[]) => [p.map[0] * 1000 * at[0] + p.map[1], -p.map[0] * 1000 * at[1] + p.map[2]];

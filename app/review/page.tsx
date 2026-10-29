@@ -8,7 +8,21 @@ import { Logo, Bars, Spinner } from '../admin/_ui/shared';
 // its picture in 3D, the text, the conversation, the status and a reply (with photos). "Otvoriť v 3D" opens the
 // published walkthrough at that spot in a new tab. Jano with his /admin login, the architect with his personal link.
 
-import { Status, Photo, Msg, Point, Page, Me, ST, PLAN_LABEL, when, toPt, who, api } from './shared';
+import { Status, Photo, Msg, Point, Page, Me, ST, PLAN_LABEL, GENERAL, when, toPt, who, api } from './shared';
+
+// an important point (29 Oct, Jano: "mark some comments important with exclamation and bolder number and heading"):
+// the number heavier, a red "!" beside it, the heading heavier with a red "!" in front
+function Num({ p, cls }: { p: Point; cls: string }) {
+  return (
+    <span className="relative shrink-0 inline-flex">
+      <span className={`${cls} rounded-full flex items-center justify-center ${p.important ? 'font-black ring-2 ring-red-600' : 'font-bold'}`} style={{ background: ST[p.status].bg, color: ST[p.status].fg }}>{p.n}</span>
+      {p.important && <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-600 text-white text-[10px] font-black leading-none flex items-center justify-center" aria-label="dôležité">!</span>}
+    </span>
+  );
+}
+function Title({ p, cls }: { p: Point; cls: string }) {
+  return <span className={`${cls} ${p.important ? 'font-black' : ''}`}>{p.important && <span className="text-red-600 mr-1">!</span>}{p.title}</span>;
+}
 
 function StatusPill({ s, long }: { s: Status; long?: boolean }) {
   return <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap" style={{ background: ST[s].bg, color: ST[s].fg }}>{long ? ST[s].label : ST[s].short}</span>;
@@ -23,6 +37,7 @@ export default function ReviewPage() {
   const [plan, setPlan] = useState<string>('');
   const [sel, setSel] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | Status>('all');
+  const [onlyImp, setOnlyImp] = useState(false);
   const [err, setErr] = useState('');
 
   const load = useCallback(async () => {
@@ -49,7 +64,7 @@ export default function ReviewPage() {
       const want = Number(new URLSearchParams(location.search).get('p'));
       const p = d.points.find(x => x.n === want);
       let pl = ''; try { pl = localStorage.getItem('review.plan') || ''; } catch {}
-      const plans = new Set(d.sheets.pages.map(x => x.plan));
+      const plans = new Set([...d.sheets.pages.map(x => x.plan), ...(d.points.some(q => q.plan === GENERAL) ? [GENERAL] : [])]);
       setPlan(p ? p.plan : plans.has(pl) ? pl : (d.sheets.pages.find(x => d.points.some(q => q.plan === x.plan))?.plan || d.sheets.pages[0]?.plan || ''));
       if (p) setSel(p.id);
     };
@@ -65,7 +80,7 @@ export default function ReviewPage() {
   }, [state, load]);
 
   const page = pages.find(p => p.plan === plan) || null;
-  const shown = useMemo(() => points.filter(p => filter === 'all' || p.status === filter), [points, filter]);
+  const shown = useMemo(() => points.filter(p => (filter === 'all' || p.status === filter) && (!onlyImp || p.important)), [points, filter, onlyImp]);
   const point = points.find(p => p.id === sel) || null;
   const counts = useMemo(() => {
     const c: Record<string, { all: number; open: number }> = {};
@@ -100,6 +115,12 @@ export default function ReviewPage() {
               {f === 'all' ? `Všetky ${points.length}` : `${ST[f].short} ${points.filter(p => p.status === f).length}`}
             </button>
           ))}
+          {points.some(p => p.important) && (
+            <button onClick={() => setOnlyImp(v => !v)} title="Len dôležité pripomienky"
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider ${onlyImp ? 'bg-red-600 text-white' : 'text-zm-neutral hover:bg-white/10'}`}>
+              ! Dôležité {points.filter(p => p.important).length}
+            </button>
+          )}
         </div>
         <div className="ml-auto flex items-center gap-3 text-sm">
           <a href="/review/print" target="_blank" rel="noopener" title="Všetky výkresy s pripomienkami, obrázkami a odpoveďami ako PDF (v dialógu tlače zvoľte Uložiť ako PDF)"
@@ -115,18 +136,26 @@ export default function ReviewPage() {
             {PLAN_LABEL(p.plan)}{counts[p.plan] && <span className={`ml-1.5 px-1.5 rounded-full text-[10px] ${counts[p.plan].open ? 'bg-zm-orange text-zm-ink' : 'bg-zm-neutral text-zm-dark'}`}>{counts[p.plan].all}</span>}
           </button>
         ))}
+        {counts[GENERAL] && (
+          <button onClick={() => setPlan(GENERAL)} title="Pripomienky bez miesta vo výkrese"
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${plan === GENERAL ? 'bg-zm-blue text-white' : 'text-zm-dark hover:bg-zm-paper'}`}>
+            Všeobecné<span className={`ml-1.5 px-1.5 rounded-full text-[10px] ${counts[GENERAL].open ? 'bg-zm-orange text-zm-ink' : 'bg-zm-neutral text-zm-dark'}`}>{counts[GENERAL].all}</span>
+          </button>
+        )}
       </nav>
       {err && <div className="bg-red-50 text-red-700 text-sm px-4 py-2">{err}</div>}
       <Bars className="shrink-0" />
       <div className="flex-1 min-h-0 flex relative">
         <div className="flex-1 min-w-0 relative">
-          {page ? <Sheet page={page} points={shown.filter(p => p.plan === page.plan)} sel={sel} onPick={pick} /> :
+          {plan === GENERAL ? <General points={shown.filter(p => p.plan === GENERAL)} sel={sel} onPick={pick} /> :
+            page ? <Sheet page={page} points={shown.filter(p => p.plan === page.plan)} sel={sel} onPick={pick} /> :
             <p className="p-6 text-sm text-zm-muted">Pôdorysy sa ešte nenahrali.</p>}
         </div>
         <aside className={`bg-white border-l border-zm-line flex flex-col min-h-0 lg:static lg:w-[26rem] xl:w-[30rem] lg:translate-x-0
             absolute inset-y-0 right-0 w-full md:w-[28rem] z-20 shadow-xl lg:shadow-none transition-transform ${point ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
           {point ? <Detail key={point.id} p={point} me={me!} onClose={close} reload={load} /> :
-            <List points={shown.filter(p => !page || p.plan === page.plan)} all={shown} plan={page} onPick={pick} />}
+            <List points={shown.filter(p => plan === GENERAL ? p.plan === GENERAL : (!page || p.plan === page.plan))} all={shown}
+              label={plan === GENERAL ? 'Všeobecné pripomienky' : page ? page.name : 'Pripomienky'} onPick={pick} />}
         </aside>
       </div>
     </div>
@@ -185,9 +214,10 @@ function Sheet({ page, points, sel, onPick }: { page: Page; points: Point[]; sel
             return (
               <button key={p.id} onClick={() => onPick(p)} title={`${p.n}. ${p.title}`} aria-label={`Pripomienka ${p.n}: ${p.title}`}
                 className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full font-bold flex items-center justify-center border-2 shadow-md transition-transform
-                  ${on ? 'w-10 h-10 text-base scale-110 border-zm-ink z-10' : 'w-8 h-8 text-sm border-white hover:scale-110'}`}
+                  ${on ? 'w-10 h-10 text-base scale-110 border-zm-ink z-10' : p.important ? 'w-9 h-9 text-sm border-red-600 hover:scale-110' : 'w-8 h-8 text-sm border-white hover:scale-110'} ${p.important ? 'font-black' : ''}`}
                 style={{ left: `${(x / page.w) * 100}%`, top: `${(y / page.h) * 100}%`, background: ST[p.status].bg, color: ST[p.status].fg }}>
                 {p.n}
+                {p.important && <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-600 text-white text-[10px] font-black leading-none flex items-center justify-center">!</span>}
               </button>
             );
           })}
@@ -205,15 +235,39 @@ function Sheet({ page, points, sel, onPick }: { page: Page; points: Point[]; sel
   );
 }
 
+// ---------------------------------------------------------------- notes without a place on a drawing: cards instead of a sheet
+function General({ points, sel, onPick }: { points: Point[]; sel: string | null; onPick: (p: Point) => void }) {
+  return (
+    <div className="absolute inset-0 overflow-y-auto bg-zm-paper p-3 sm:p-5">
+      <h2 className="text-sm font-bold text-zm-dark mb-3">Všeobecné pripomienky <span className="font-normal text-zm-muted">– bez miesta vo výkrese</span></h2>
+      <div className="grid gap-3 md:grid-cols-2">
+        {points.map(p => (
+          <button key={p.id} onClick={() => onPick(p)}
+            className={`text-left bg-white rounded-xl border p-4 hover:shadow-md transition-shadow ${p.id === sel ? 'border-zm-ink shadow-md' : 'border-zm-line'}`}>
+            <div className="flex items-start gap-3">
+              <Num p={p} cls="w-8 h-8 text-sm" />
+              <span className="min-w-0">
+                <Title p={p} cls="block font-bold text-zm-ink leading-snug" />
+                <span className="block text-sm text-zm-muted mt-1 line-clamp-3 whitespace-pre-wrap">{p.text}</span>
+                <span className="block text-[11px] text-zm-muted mt-2">{ST[p.status].short}{p.unit ? ` · ${p.unit}` : ''}{p.messages.length ? ` · ${p.messages.length} ${p.messages.length === 1 ? 'odpoveď' : p.messages.length < 5 ? 'odpovede' : 'odpovedí'}` : ''}</span>
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- the list of the sheet's points (no point open)
-function List({ points, all, plan, onPick }: { points: Point[]; all: Point[]; plan: Page | null; onPick: (p: Point) => void }) {
+function List({ points, all, label, onPick }: { points: Point[]; all: Point[]; label: string; onPick: (p: Point) => void }) {
   const Row = ({ p }: { p: Point }) => (
     <li>
       <button onClick={() => onPick(p)} className="w-full text-left px-4 py-3 hover:bg-zm-paper flex gap-3 items-start">
-        <span className="w-7 h-7 shrink-0 rounded-full font-bold text-xs flex items-center justify-center" style={{ background: ST[p.status].bg, color: ST[p.status].fg }}>{p.n}</span>
+        <Num p={p} cls="w-7 h-7 text-xs" />
         <span className="min-w-0">
-          <span className="block text-sm font-medium text-zm-ink leading-snug">{p.title}</span>
-          <span className="block text-[11px] text-zm-muted mt-0.5">{p.unit} · {PLAN_LABEL(p.plan)}{p.messages.length ? ` · ${p.messages.length} ${p.messages.length === 1 ? 'odpoveď' : p.messages.length < 5 ? 'odpovede' : 'odpovedí'}` : ''}</span>
+          <Title p={p} cls="block text-sm font-medium text-zm-ink leading-snug" />
+          <span className="block text-[11px] text-zm-muted mt-0.5">{[p.unit, PLAN_LABEL(p.plan)].filter(Boolean).join(' · ')}{p.messages.length ? ` · ${p.messages.length} ${p.messages.length === 1 ? 'odpoveď' : p.messages.length < 5 ? 'odpovede' : 'odpovedí'}` : ''}</span>
         </span>
       </button>
     </li>
@@ -222,7 +276,7 @@ function List({ points, all, plan, onPick }: { points: Point[]; all: Point[]; pl
   return (
     <div className="flex-1 overflow-y-auto">
       <p className="px-4 pt-4 pb-2 text-xs text-zm-muted">Kliknite na číslo vo výkrese alebo v zozname. Pri každej pripomienke je pohľad v 3D a tlačidlo, ktoré otvorí 3D model presne na tom mieste.</p>
-      <h2 className="px-4 pt-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-zm-dark">{plan ? plan.name : 'Pripomienky'} ({points.length})</h2>
+      <h2 className="px-4 pt-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-zm-dark">{label} ({points.length})</h2>
       <ul className="divide-y divide-zm-line">{points.map(p => <Row key={p.id} p={p} />)}</ul>
       {rest.length > 0 && <>
         <h2 className="px-4 pt-5 pb-1 text-[11px] font-bold uppercase tracking-wider text-zm-dark">Ostatné výkresy ({rest.length})</h2>
@@ -287,10 +341,10 @@ function Detail({ p, me, onClose, reload }: { p: Point; me: Me; onClose: () => v
   return (
     <div className="flex flex-col min-h-0 h-full">
       <div className="px-4 py-3 border-b border-zm-line flex items-start gap-3 shrink-0">
-        <span className="w-9 h-9 shrink-0 rounded-full font-bold flex items-center justify-center" style={{ background: ST[p.status].bg, color: ST[p.status].fg }}>{p.n}</span>
+        <Num p={p} cls="w-9 h-9" />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2"><StatusPill s={p.status} long /><span className="text-[11px] text-zm-muted">{p.unit} · {PLAN_LABEL(p.plan)} · výkres str. {p.page}</span></div>
-          <h2 className="mt-1 font-bold text-zm-ink leading-snug">{p.title}</h2>
+          <div className="flex flex-wrap items-center gap-2"><StatusPill s={p.status} long /><span className="text-[11px] text-zm-muted">{[p.unit, PLAN_LABEL(p.plan), p.page ? `výkres str. ${p.page}` : ''].filter(Boolean).join(' · ')}</span></div>
+          <h2 className="mt-1 text-zm-ink leading-snug"><Title p={p} cls="font-bold" /></h2>
         </div>
         <button onClick={onClose} className="shrink-0 w-8 h-8 rounded-lg hover:bg-zm-paper text-zm-dark text-xl leading-none" aria-label="Zavrieť">×</button>
       </div>
@@ -306,8 +360,10 @@ function Detail({ p, me, onClose, reload }: { p: Point; me: Me; onClose: () => v
           </button>
         )}
         <div className="px-4 pt-3 pb-1 flex flex-wrap gap-2 items-center">
-          <a href={p.walk_url} target="_blank" rel="noopener" className="px-3 py-1.5 rounded-lg bg-zm-orange text-zm-ink text-xs font-bold hover:bg-zm-dark hover:text-white">
-            {p.view?.kind === 'exterior' ? '3D model budovy ↗' : 'Otvoriť v 3D na tomto mieste ↗'}</a>
+          {p.view?.kind === 'none'                           // the spot is in none of the 3D models (e.g. most of the ground floor)
+            ? <span className="text-[11px] text-zm-muted">Toto miesto zatiaľ nie je v 3D modeli.</span>
+            : <a href={p.walk_url} target="_blank" rel="noopener" className="px-3 py-1.5 rounded-lg bg-zm-orange text-zm-ink text-xs font-bold hover:bg-zm-dark hover:text-white">
+                {p.view?.kind === 'exterior' ? '3D model budovy ↗' : 'Otvoriť v 3D na tomto mieste ↗'}</a>}
           {p.view?.kind === 'exterior' && <span className="text-[11px] text-zm-muted">(exteriér: výber budovy, pohľad nastavte myšou)</span>}
         </div>
 
