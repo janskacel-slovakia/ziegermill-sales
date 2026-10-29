@@ -1,0 +1,10 @@
+# Copy to .dev.vars for `pnpm preview` (the Worker running locally). Never commit .dev.vars.
+# Same names as .env.local; on Cloudflare these are the Worker's variables and secrets.
+NEXTJS_ENV=development
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+REVIEW_SYNC_KEY=
+RESEND_API_KEY=
+MAIL_FROM=
+SITE_URL=
