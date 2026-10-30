@@ -1389,6 +1389,16 @@ Running things:
       `NEXT_PUBLIC_*` vars in the build settings (inlined at build), the rest as Worker secrets
       (`SUPABASE_SERVICE_ROLE_KEY`, `REVIEW_SYNC_KEY`, `RESEND_API_KEY`, `MAIL_FROM`, `SITE_URL`); custom domain
       on the Worker; then test /admin, /review sync and uploads before switching over.
+  - 29 Oct evening: Workers Builds is connected (Worker `ziegermill-sales`, production branch `atelier-walkthrough`,
+    build vars `NEXT_PUBLIC_SUPABASE_*`, secrets `SUPABASE_SERVICE_ROLE_KEY` + `REVIEW_SYNC_KEY`). Every push builds
+    and deploys to **https://ziegermill-sales.real-estate-teaser.workers.dev** (still testing; the account's workers.dev
+    subdomain was named by wrangler, can be renamed). Pages, /api/units (37 units), /admin login, 3D walks checked.
+  - `ziegermill.sk` + `www` show only "Už čoskoro" (Jano, 30 Oct: still testing): the separate Worker `ziegermill-soon`,
+    `coming-soon/` (logo from `public/logo.svg`), deployed by hand with
+    `pnpm exec wrangler deploy -c coming-soon/wrangler.jsonc`. To go live: remove its custom domains, add both to
+    `ziegermill-sales`, set `SITE_URL`.
+  - Deploying from a Claude cloud session: the Cloudflare token is a network secret (injected by the proxy), so a Worker
+    WITH assets can't be deployed from there (the asset upload's own JWT gets replaced -> 401); one without assets can.
 - Building services pilot (11 Oct 2026, Jano: plan pipes and cables from the model, x-ray through walls, "something like
   BIM"): `flats\_mep_pilot\` (README.md there).
   - A32 only: services IFC, quantities and costs (€27k / €43k / €69k excl. VAT, i.e. 412 / 654 / 1,056 €/m²; prices

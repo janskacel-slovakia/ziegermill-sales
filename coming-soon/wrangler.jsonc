@@ -1,0 +1,13 @@
+{
+  // "Už čoskoro" on ziegermill.sk until the site goes live (deploy: pnpm exec wrangler deploy -c coming-soon/wrangler.jsonc).
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "ziegermill-soon",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "rules": [{ "type": "Text", "globs": ["**/*.svg"], "fallthrough": true }],
+  "routes": [
+    { "pattern": "ziegermill.sk", "custom_domain": true },
+    { "pattern": "www.ziegermill.sk", "custom_domain": true }
+  ]
+}
